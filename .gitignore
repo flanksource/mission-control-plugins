@@ -1,4 +1,4 @@
-.bin/
+7.bin/
 .kube
 .vscode/
 .idea/
@@ -66,3 +66,4 @@ plugin-smoke
 .gavel/
 .tmp/
 
+**/assets/
