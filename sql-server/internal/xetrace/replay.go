@@ -390,7 +390,7 @@ func ReplayOne(ctx context.Context, db *gorm.DB, e Event) ReplayResult {
 		res.Duration = time.Since(start)
 		return res
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns, err := rows.Columns()
 	if err != nil {

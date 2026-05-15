@@ -13,7 +13,7 @@ var _ = ginkgo.Describe("GopsClient", func() {
 	ginkgo.It("sends signal bytes and reads the response", func() {
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		Expect(err).ToNot(HaveOccurred())
-		defer ln.Close()
+		defer func() { Expect(ln.Close()).To(Succeed()) }()
 
 		done := make(chan byte, 1)
 		go func() {
@@ -21,7 +21,7 @@ var _ = ginkgo.Describe("GopsClient", func() {
 			if err != nil {
 				return
 			}
-			defer conn.Close()
+			defer func() { Expect(conn.Close()).To(Succeed()) }()
 			buf := make([]byte, 1)
 			_, _ = conn.Read(buf)
 			done <- buf[0]

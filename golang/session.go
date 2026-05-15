@@ -42,9 +42,24 @@ func (s *Session) Stop() error {
 }
 
 func (s *Session) Snapshot() Session {
-	out := *s
-	out.stop = nil
-	return out
+	return Session{
+		ID:             s.ID,
+		Namespace:      s.Namespace,
+		Kind:           s.Kind,
+		Name:           s.Name,
+		Pod:            s.Pod,
+		Container:      s.Container,
+		PID:            s.PID,
+		GopsRemote:     s.GopsRemote,
+		GopsLocal:      s.GopsLocal,
+		PprofRemote:    s.PprofRemote,
+		PprofLocal:     s.PprofLocal,
+		PprofBasePath:  s.PprofBasePath,
+		GopsAvailable:  s.GopsAvailable,
+		PprofAvailable: s.PprofAvailable,
+		StartedAt:      s.StartedAt,
+		Diagnostics:    append([]string(nil), s.Diagnostics...),
+	}
 }
 
 type SessionRegistry struct {

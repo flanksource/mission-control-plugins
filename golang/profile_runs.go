@@ -27,7 +27,7 @@ type ProfileRun struct {
 
 	data   []byte
 	cancel context.CancelFunc
-	mu     sync.Mutex
+	mu     *sync.Mutex
 }
 
 func NewProfileRun(sessionID, kind, preference string, seconds int) (*ProfileRun, context.Context) {
@@ -41,6 +41,7 @@ func NewProfileRun(sessionID, kind, preference string, seconds int) (*ProfileRun
 		Seconds:    seconds,
 		StartedAt:  time.Now().UTC(),
 		cancel:     cancel,
+		mu:         &sync.Mutex{},
 	}, ctx
 }
 
@@ -86,10 +87,22 @@ func (r *ProfileRun) Stop() {
 func (r *ProfileRun) Snapshot() ProfileRun {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := *r
-	out.data = nil
-	out.cancel = nil
-	out.mu = sync.Mutex{}
+	out := ProfileRun{
+		ID:          r.ID,
+		SessionID:   r.SessionID,
+		Kind:        r.Kind,
+		Source:      r.Source,
+		Preference:  r.Preference,
+		State:       r.State,
+		Seconds:     r.Seconds,
+		StartedAt:   r.StartedAt,
+		CompletedAt: r.CompletedAt,
+		ElapsedMS:   r.ElapsedMS,
+		Bytes:       r.Bytes,
+		Error:       r.Error,
+		URL:         r.URL,
+		mu:          &sync.Mutex{},
+	}
 	if out.State == "running" {
 		out.ElapsedMS = time.Since(out.StartedAt).Milliseconds()
 	}

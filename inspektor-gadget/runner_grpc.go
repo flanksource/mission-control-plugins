@@ -21,7 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
@@ -42,8 +41,12 @@ type gadgetServiceTarget struct {
 }
 
 type k8sPortForwardConn struct {
-	conn    httpstream.Connection
-	stream  httpstream.Stream
+	conn   interface{ Close() error }
+	stream interface {
+		io.Reader
+		io.Writer
+		Close() error
+	}
 	podName string
 }
 
@@ -80,14 +83,18 @@ func (realTraceRunner) Run(ctx context.Context, req TraceRunRequest, emit func(T
 	return errors.Join(errs...)
 }
 
-func runGadgetOnTarget(ctx context.Context, req TraceRunRequest, namespace string, target gadgetServiceTarget, emit func(TraceEvent)) error {
+func runGadgetOnTarget(ctx context.Context, req TraceRunRequest, namespace string, target gadgetServiceTarget, emit func(TraceEvent)) (err error) {
 	dialCtx, cancelDial := context.WithTimeout(ctx, gadgetServiceDialLimit)
 	defer cancelDial()
 	conn, err := dialGadgetService(dialCtx, req.RESTConfig, namespace, target, gadgetServicePort, gadgetServiceDialLimit)
 	if err != nil {
 		return fmt.Errorf("dial gadget service pod %s: %w", target.podName, err)
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close gadget service connection: %w", closeErr)
+		}
+	}()
 
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
@@ -281,20 +288,32 @@ func requestedNodes(params map[string]string) []string {
 
 func dialGadgetService(ctx context.Context, config *rest.Config, namespace string, target gadgetServiceTarget, port uint16, timeout time.Duration) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
-		grpc.WithBlock(),
-		grpc.WithReturnConnectionError(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 			return newK8SPortForwardConn(ctx, config, namespace, target.podName, port, timeout)
 		}),
 	}
-	return grpc.DialContext(ctx, "passthrough:///"+target.podName, opts...)
+	conn, err := grpc.NewClient("passthrough:///"+target.podName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	select {
+	case <-ctx.Done():
+		if closeErr := conn.Close(); closeErr != nil {
+			return nil, errors.Join(ctx.Err(), fmt.Errorf("close gadget service connection: %w", closeErr))
+		}
+		return nil, ctx.Err()
+	default:
+	}
+	return conn, nil
 }
 
 func newK8SPortForwardConn(_ context.Context, config *rest.Config, namespace, podName string, targetPort uint16, timeout time.Duration) (net.Conn, error) {
 	conn := &k8sPortForwardConn{podName: podName}
 	cfg := rest.CopyConfig(config)
-	factory.SetKubernetesDefaults(cfg)
+	if err := factory.SetKubernetesDefaults(cfg); err != nil {
+		return nil, fmt.Errorf("set kubernetes defaults: %w", err)
+	}
 	cfg.Timeout = timeout
 
 	transport, upgrader, err := spdy.RoundTripperFor(cfg)
@@ -319,20 +338,29 @@ func newK8SPortForwardConn(_ context.Context, config *rest.Config, namespace, po
 	headers.Set(corev1.PortForwardRequestIDHeader, strconv.Itoa(1))
 	errorStream, err := newConn.CreateStream(headers)
 	if err != nil {
-		newConn.Close()
+		if closeErr := newConn.Close(); closeErr != nil {
+			return nil, errors.Join(fmt.Errorf("create port-forward error stream: %w", err), fmt.Errorf("close port-forward connection: %w", closeErr))
+		}
 		return nil, fmt.Errorf("create port-forward error stream: %w", err)
 	}
-	errorStream.Close()
+	if err := errorStream.Close(); err != nil {
+		_ = newConn.Close()
+		return nil, fmt.Errorf("close port-forward error stream: %w", err)
+	}
 	go func() {
 		if message, err := io.ReadAll(errorStream); err == nil && len(message) > 0 {
-			_ = newConn.Close()
+			if closeErr := newConn.Close(); closeErr != nil {
+				return
+			}
 		}
 	}()
 
 	headers.Set(corev1.StreamType, corev1.StreamTypeData)
 	dataStream, err := newConn.CreateStream(headers)
 	if err != nil {
-		newConn.Close()
+		if closeErr := newConn.Close(); closeErr != nil {
+			return nil, errors.Join(fmt.Errorf("create port-forward data stream: %w", err), fmt.Errorf("close port-forward connection: %w", closeErr))
+		}
 		return nil, fmt.Errorf("create port-forward data stream: %w", err)
 	}
 	conn.conn = newConn
@@ -349,8 +377,12 @@ func (k *k8sPortForwardConn) Write(b []byte) (int, error) {
 }
 
 func (k *k8sPortForwardConn) Close() error {
-	k.stream.Close()
-	return k.conn.Close()
+	streamErr := k.stream.Close()
+	connErr := k.conn.Close()
+	if streamErr != nil {
+		return streamErr
+	}
+	return connErr
 }
 
 func (k *k8sPortForwardConn) LocalAddr() net.Addr {

@@ -47,7 +47,7 @@ func (c GopsClient) Trace(ctx context.Context) ([]byte, error) {
 	return c.command(ctx, signal.Trace)
 }
 
-func (c GopsClient) command(ctx context.Context, sig byte, params ...byte) ([]byte, error) {
+func (c GopsClient) command(ctx context.Context, sig byte, params ...byte) (out []byte, err error) {
 	if c.Addr == "" {
 		return nil, fmt.Errorf("gops address is required")
 	}
@@ -60,7 +60,11 @@ func (c GopsClient) command(ctx context.Context, sig byte, params ...byte) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("connect gops %s: %w", c.Addr, err)
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close gops connection: %w", closeErr)
+		}
+	}()
 	if deadline, ok := ctx.Deadline(); ok {
 		_ = conn.SetDeadline(deadline)
 	} else {
@@ -71,7 +75,7 @@ func (c GopsClient) command(ctx context.Context, sig byte, params ...byte) ([]by
 	if _, err := conn.Write(buf); err != nil {
 		return nil, fmt.Errorf("send gops command: %w", err)
 	}
-	out, err := io.ReadAll(conn)
+	out, err = io.ReadAll(conn)
 	if err != nil {
 		return nil, fmt.Errorf("read gops response: %w", err)
 	}

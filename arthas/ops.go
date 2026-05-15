@@ -212,7 +212,7 @@ func (p *ArthasPlugin) execCommand(ctx context.Context, sessionID, command strin
 	if err != nil {
 		return ExecResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		return ExecResponse{}, readHTTPError(resp)
 	}

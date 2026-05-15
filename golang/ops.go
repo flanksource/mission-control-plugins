@@ -505,7 +505,7 @@ func probePprof(ctx context.Context, port int, base string) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
@@ -605,7 +605,7 @@ func getPprof(ctx context.Context, sess *Session, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("pprof %s returned HTTP %d", path, resp.StatusCode)
 	}

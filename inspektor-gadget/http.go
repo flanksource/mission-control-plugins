@@ -41,7 +41,9 @@ func (p *InspektorGadgetPlugin) httpSession(w http.ResponseWriter, r *http.Reque
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", id+".ndjson"))
 		for _, event := range sess.Events() {
 			b, _ := json.Marshal(event)
-			fmt.Fprintf(w, "%s\n", b)
+			if _, err := fmt.Fprintf(w, "%s\n", b); err != nil {
+				return
+			}
 		}
 	default:
 		http.NotFound(w, r)
@@ -75,7 +77,9 @@ func streamSessionEvents(w http.ResponseWriter, r *http.Request, sess *TraceSess
 }
 
 func writeSSE(w http.ResponseWriter, f http.Flusher, event, data string) {
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+		return
+	}
 	f.Flush()
 }
 
@@ -84,6 +88,8 @@ func writeSSEJSON(w http.ResponseWriter, f http.Flusher, v any) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(w, "data: %s\n\n", b)
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+		return
+	}
 	f.Flush()
 }

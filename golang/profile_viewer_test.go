@@ -30,7 +30,7 @@ var _ = ginkgo.Describe("ProfileViewerRegistry", func() {
 
 		resp, err := http.Get("http://" + addr + "/")
 		Expect(err).ToNot(HaveOccurred())
-		resp.Body.Close()
+		Expect(resp.Body.Close()).To(Succeed())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		// A second Get returns the same address without spawning a new process.
@@ -45,7 +45,7 @@ var _ = ginkgo.Describe("ProfileViewerRegistry", func() {
 			if err != nil {
 				return err
 			}
-			c.Body.Close()
+			Expect(c.Body.Close()).To(Succeed())
 			return nil
 		}, "10s", "200ms").Should(HaveOccurred())
 	})
@@ -78,8 +78,8 @@ func generateHeapProfile() []byte {
 		return nil
 	}
 	defer func() {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		Expect(tmp.Close()).To(Succeed())
+		Expect(os.Remove(tmp.Name())).To(Succeed())
 	}()
 	if err := pprof.Lookup("heap").WriteTo(tmp, 0); err != nil {
 		return nil

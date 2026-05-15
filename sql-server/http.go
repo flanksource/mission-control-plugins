@@ -66,12 +66,16 @@ func (p *SQLServerPlugin) httpTraceStream(w http.ResponseWriter, r *http.Request
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(w, "data: %s\n\n", b)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+				return
+			}
 			flusher.Flush()
 			since = e.Key()
 		}
 		if !trace.Running() {
-			fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+			if _, err := fmt.Fprintf(w, "event: done\ndata: {}\n\n"); err != nil {
+				return
+			}
 			flusher.Flush()
 			return
 		}

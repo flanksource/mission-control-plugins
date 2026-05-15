@@ -101,7 +101,7 @@ func Execute(ctx context.Context, db *gorm.DB, statement string, opts Options) (
 	if err != nil {
 		return res, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	if err := readAllResultSets(rows, opts.RowLimit, res); err != nil {
 		return res, err

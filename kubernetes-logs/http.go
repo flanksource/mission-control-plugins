@@ -99,7 +99,7 @@ func (p *KubernetesLogsPlugin) httpLogs(w http.ResponseWriter, r *http.Request) 
 		writeSSE(w, flusher, "error", err.Error())
 		return
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	baseLabels := map[string]string{
 		"namespace": namespace,
@@ -164,7 +164,9 @@ type Reader struct {
 func (r Reader) Read(p []byte) (int, error) { return r.R.Read(p) }
 
 func writeSSE(w http.ResponseWriter, f http.Flusher, event, data string) {
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+		return
+	}
 	f.Flush()
 }
 
@@ -173,7 +175,9 @@ func writeSSEJSON(w http.ResponseWriter, f http.Flusher, v any) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(w, "data: %s\n\n", b)
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+		return
+	}
 	f.Flush()
 }
 

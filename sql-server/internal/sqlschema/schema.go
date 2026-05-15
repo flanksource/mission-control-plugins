@@ -68,7 +68,7 @@ func Introspect(ctx context.Context, db *gorm.DB, opts Options) (*Response, erro
 	if err != nil {
 		return nil, fmt.Errorf("acquire connection: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if opts.Database != "" {
 		if _, err := conn.ExecContext(ctx, "USE "+quoteDB(opts.Database)); err != nil {
@@ -125,7 +125,7 @@ func scanTableRows(ctx context.Context, conn *sql.Conn, query string) ([]tableRo
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []tableRow
 	for rows.Next() {
 		var r tableRow
@@ -142,7 +142,7 @@ func scanColumnRows(ctx context.Context, conn *sql.Conn, query string) ([]column
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []columnRow
 	for rows.Next() {
 		var r columnRow
