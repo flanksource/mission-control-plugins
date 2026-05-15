@@ -47,7 +47,7 @@ jobs:
             changed_files=$(git diff --name-only HEAD~1..HEAD)
           fi
 
-          if printf '%s\n' "$changed_files" | grep -q "^$PLUGIN/"; then
+          if printf '%s\n' "$changed_files" | grep -Eq "^($PLUGIN/|Makefile|Taskfile.yml|\.github/workflows/build\.yaml)"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -60,7 +60,35 @@ jobs:
           go-version-file: ${{ matrix.plugin }}/go.mod
           cache-dependency-path: ${{ matrix.plugin }}/go.sum
 
-      - name: Build
+      - name: Setup Node
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        if: steps.changes.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: Build UI
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: ${{ matrix.plugin }}/ui-src
+        env:
+          PLUGIN_VERSION: ${{ github.sha }}
+          PLUGIN_BUILD_DATE: ${{ github.event.repository.updated_at }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Regenerate UI checksum
         if: steps.changes.outputs.changed == 'true'
         working-directory: ${{ matrix.plugin }}
-        run: go build ./...
+        run: go generate ./...
+
+      - name: Build Go binary
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: ${{ matrix.plugin }}
+        run: go build .
