@@ -80,7 +80,7 @@ jobs:
           PLUGIN_VERSION: ${{ github.sha }}
           PLUGIN_BUILD_DATE: ${{ github.event.repository.updated_at }}
         run: |
-          pnpm install --frozen-lockfile --config.dangerously-allow-all-builds=true
+          pnpm install --frozen-lockfile
           pnpm run build
 
       - name: Regenerate UI checksum
