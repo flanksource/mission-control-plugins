@@ -2,8 +2,8 @@
 // Deployment / StatefulSet / DaemonSet / ReplicaSet / Job / CronJob), using
 // the Plugin CRD's kubernetes connection.
 //
-// Build: go build -o $MISSION_CONTROL_PLUGIN_PATH/kubernetes-logs ./plugins/kubernetes-logs
-// Apply: kubectl apply -f plugins/kubernetes-logs/Plugin.yaml
+// Build: go build -o $MISSION_CONTROL_PLUGIN_PATH/kubernetes-logs ./kubernetes-logs
+// Apply: kubectl apply -f kubernetes-logs/Plugin.yaml
 package main
 
 import (
@@ -85,22 +85,19 @@ func (p *KubernetesLogsPlugin) Operations() []sdk.Operation {
 			},
 			Handler: p.listPods,
 		},
+		{
+			Def: &pluginpb.OperationDef{
+				Name:        "logs",
+				Description: "Stream Kubernetes pod logs as Server-Sent Events.",
+				Scope:       "config",
+				ResultMime:  "text/event-stream",
+				Http: []*pluginpb.HTTPBinding{
+					{Method: http.MethodGet},
+				},
+			},
+			HTTPHandler: http.HandlerFunc(p.httpLogs),
+		},
 	}
-}
-
-// HTTPHandler powers the iframe UI: GET /api/pods?config_id=… and
-// GET /api/logs?pod=…&namespace=…&tailLines=N stream-as-NDJSON.
-func (p *KubernetesLogsPlugin) HTTPHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/pods", p.httpPods)
-	mux.HandleFunc("/logs", p.httpLogs)
-	mux.Handle("/version", sdk.VersionHandler(sdk.BuildInfo{
-		Name:       "kubernetes-logs",
-		Version:    Version,
-		BuildDate:  BuildDate,
-		UIChecksum: uiChecksum,
-	}))
-	return mux
 }
 
 // TailParams is the input shape for the `tail` operation. The CLI sends
@@ -125,7 +122,7 @@ func (p *KubernetesLogsPlugin) tail(ctx context.Context, req sdk.InvokeCtx) (any
 		params.TailLines = 200
 	}
 
-	cli, err := p.clients.For(ctx, req.Host)
+	cli, err := p.clients.For(ctx, req.Host, req.ConfigItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +147,7 @@ func (p *KubernetesLogsPlugin) tail(ctx context.Context, req sdk.InvokeCtx) (any
 }
 
 func (p *KubernetesLogsPlugin) listPods(ctx context.Context, req sdk.InvokeCtx) (any, error) {
-	cli, err := p.clients.For(ctx, req.Host)
+	cli, err := p.clients.For(ctx, req.Host, req.ConfigItemID)
 	if err != nil {
 		return nil, err
 	}

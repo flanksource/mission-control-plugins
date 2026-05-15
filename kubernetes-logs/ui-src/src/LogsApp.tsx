@@ -46,7 +46,7 @@ async function fetchOrThrow(input: string, init: RequestInit, label: string): Pr
 
 async function listPods(configId: string): Promise<PodRow[]> {
   const res = await fetchOrThrow(
-    `${PLUGIN_BASE}/operations/list-pods?config_id=${encodeURIComponent(configId)}`,
+    `${PLUGIN_BASE}/invoke/list-pods?config_id=${encodeURIComponent(configId)}`,
     {
       method: "POST",
       body: "{}",
@@ -59,9 +59,20 @@ async function listPods(configId: string): Promise<PodRow[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
-export function LogsApp() {
+function getConfigId() {
   const params = new URLSearchParams(location.search);
-  const configId = params.get("config_id") ?? "";
+  const configId = params.get("config_id");
+  if (configId) return configId;
+
+  try {
+    return new URL(document.referrer).searchParams.get("config_id") ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function LogsApp() {
+  const configId = getConfigId();
 
   const [pods, setPods] = useState<PodRow[]>([]);
   const [selectedPod, setSelectedPod] = useState<string>("");
@@ -116,8 +127,9 @@ export function LogsApp() {
     if (!selectedPod) return;
     const [ns, pod] = selectedPod.split("|");
     const url =
-      `${PLUGIN_BASE}/ui/logs` +
+      `${PLUGIN_BASE}/proxy/logs` +
       `?pod=${encodeURIComponent(pod)}` +
+      `&config_id=${encodeURIComponent(configId)}` +
       `&namespace=${encodeURIComponent(ns)}` +
       `&container=${encodeURIComponent(container)}` +
       `&tailLines=${tailLines}` +
@@ -142,7 +154,7 @@ export function LogsApp() {
     return () => {
       es.close();
     };
-  }, [selectedPod, container, tailLines, follow]);
+  }, [selectedPod, configId, container, tailLines, follow]);
 
   const podOptions = useMemo(
     () =>

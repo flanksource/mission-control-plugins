@@ -7,7 +7,7 @@ matching pod.
 ## What it shows the SDK author
 
 - Reading the catalog item (`Host.GetConfigItem`) to learn `kind / namespace / name`.
-- Resolving a Kubernetes connection by type (`Host.GetConnectionByType(ctx, sdk.ConnectionTypeKubernetes)`).
+- Resolving the Kubernetes connection for the selected catalog item (`Host.GetConnectionForConfig`).
 - An iframe UI that calls back into the host's operation API for `list-pods`,
   then opens a Server-Sent Events stream against the plugin's own HTTP server
   for follow-mode log tailing.
@@ -18,8 +18,8 @@ matching pod.
 
 ```sh
 mkdir -p $MISSION_CONTROL_PLUGIN_PATH
-go build -o $MISSION_CONTROL_PLUGIN_PATH/kubernetes-logs ./plugins/kubernetes-logs
-kubectl apply -f plugins/kubernetes-logs/Plugin.yaml
+go build -o $MISSION_CONTROL_PLUGIN_PATH/kubernetes-logs ./kubernetes-logs
+kubectl apply -f kubernetes-logs/Plugin.yaml
 ```
 
 ## CLI
@@ -38,7 +38,7 @@ mission-control plugin kubernetes-logs list-pods --config-id <uuid>
 
 ```sh
 curl -X POST -d '{"tailLines":50}' \
-  "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/operations/tail?config_id=<uuid>"
+  "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/invoke/tail?config_id=<uuid>"
 ```
 
 Returns `application/clicky+json` rows of `{pod, container, line}`.
@@ -50,8 +50,6 @@ viewer with pod/container selectors and follow-mode streaming.
 
 ## Connection resolution
 
-The plugin's `connections.kubernetes` field is the same shape as the
-`exec` action's: it can be a kubeconfig env-var, a named `Connection`,
-`fromConfigItem` (derive credentials from the catalog item being viewed —
-the natural choice for an EKS / GKE / Kubernetes cluster config item), or
-left empty so the plugin falls back to its own in-cluster service account.
+The plugin asks Mission Control for the connection used by the scraper that
+created the selected config item. If Mission Control cannot resolve one, the
+plugin falls back to its own in-cluster service account.

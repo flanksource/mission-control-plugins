@@ -250,7 +250,7 @@ tasks:
 
   ui:install:plugin:kubernetes-logs:
     desc: Install pnpm deps for the kubernetes-logs plugin UI workspace
-    dir: plugins/kubernetes-logs/ui-src
+    dir: kubernetes-logs/ui-src
     cmds:
       - CI=true pnpm install --no-frozen-lockfile --prefer-offline
     sources:
@@ -263,8 +263,8 @@ tasks:
       - test node_modules/.modules.yaml -nt package.json
 
   ui:build:plugin:kubernetes-logs:
-    desc: Build the kubernetes-logs plugin UI bundle into plugins/kubernetes-logs/ui
-    dir: plugins/kubernetes-logs/ui-src
+    desc: Build the kubernetes-logs plugin UI bundle into kubernetes-logs/ui
+    dir: kubernetes-logs/ui-src
     deps: [ui:install:plugin:kubernetes-logs]
     env:
       PLUGIN_VERSION: "{{.VERSION}}"
@@ -289,35 +289,34 @@ tasks:
     desc: Regenerate ui_checksum.go (sha256 of the embedded UI bundle)
     deps: [ui:build:plugin:kubernetes-logs]
     cmds:
-      - go generate ./plugins/kubernetes-logs/...
+      - cd kubernetes-logs && go generate ./...
     sources:
-      - plugins/kubernetes-logs/ui/**
-      - plugins/kubernetes-logs/internal/gen-checksum/main.go
+      - kubernetes-logs/ui/**
+      - kubernetes-logs/internal/gen-checksum/main.go
     generates:
-      - plugins/kubernetes-logs/ui_checksum.go
+      - kubernetes-logs/ui_checksum.go
 
   build:plugin:kubernetes-logs:
     desc: Build the kubernetes-logs reference plugin (UI + checksum + Go binary) into $MISSION_CONTROL_PLUGIN_PATH
     deps: [generate:plugin:kubernetes-logs]
     vars:
       PLUGIN_NAME: kubernetes-logs
-      PLUGIN_DIR: "{{.ROOT_DIR}}/plugins/kubernetes-logs"
+      PLUGIN_DIR: "{{.ROOT_DIR}}/kubernetes-logs"
       PLUGIN_PATH:
         sh: echo "${MISSION_CONTROL_PLUGIN_PATH:-$HOME/.mission-control/plugins}"
     cmds:
       - mkdir -p {{.PLUGIN_PATH}}
       - >-
-        go build -o {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}}
+        cd kubernetes-logs && go build -o {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}}
         -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'"
-        ./plugins/{{.PLUGIN_NAME}}
+        .
       - echo "Installed {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}} version={{.VERSION}} built={{.BUILD_DATE}}"
     sources:
-      - plugins/kubernetes-logs/**/*.go
-      - plugins/kubernetes-logs/ui/**
-      - plugins/kubernetes-logs/ui_checksum.go
-      - plugin/**/*.go
-      - go.mod
-      - go.sum
+      - kubernetes-logs/**/*.go
+      - kubernetes-logs/ui/**
+      - kubernetes-logs/ui_checksum.go
+      - kubernetes-logs/go.mod
+      - kubernetes-logs/go.sum
     generates:
       - "{{.PLUGIN_PATH}}/{{.PLUGIN_NAME}}"
 
