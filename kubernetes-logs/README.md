@@ -7,7 +7,7 @@ matching pod.
 ## What it shows the SDK author
 
 - Reading the catalog item (`Host.GetConfigItem`) to learn `kind / namespace / name`.
-- Resolving a Kubernetes connection by type (`Host.GetConnection(ctx, "kubernetes", configID)`).
+- Resolving a Kubernetes connection by type (`Host.GetConnectionByType(ctx, sdk.ConnectionTypeKubernetes)`).
 - An iframe UI that calls back into the host's operation API for `list-pods`,
   then opens a Server-Sent Events stream against the plugin's own HTTP server
   for follow-mode log tailing.

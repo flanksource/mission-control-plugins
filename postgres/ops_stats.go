@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/postgres/internal/pgstats"
+	"github.com/flanksource/mission-control-plugins/postgres/internal/pgstats"
 )
 
 type StatsParams struct {

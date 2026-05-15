@@ -17,7 +17,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"gorm.io/gorm"
 
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/xetrace"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/xetrace"
 )
 
 const (

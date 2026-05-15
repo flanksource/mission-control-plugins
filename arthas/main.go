@@ -12,7 +12,7 @@ import (
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/arthas/internal/arthas"
+	"github.com/flanksource/mission-control-plugins/arthas/internal/arthas"
 )
 
 const (

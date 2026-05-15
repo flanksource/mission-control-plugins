@@ -140,7 +140,6 @@ func (p *InspektorGadgetPlugin) traceStart(ctx context.Context, req sdk.InvokeCt
 	}
 	if req.Caller != nil {
 		diagnostics.StartedByUserID = req.Caller.UserId
-		diagnostics.StartedByEmail = req.Caller.UserEmail
 	}
 	session, runCtx := newTraceSession(gadget, target, runParams, diagnostics, p.settings.MaxEvents)
 	p.sessions.Add(session)

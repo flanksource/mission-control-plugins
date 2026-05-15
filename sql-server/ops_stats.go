@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqlstats"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqlstats"
 )
 
 // StatsParams is the input shape for the `stats` operation.

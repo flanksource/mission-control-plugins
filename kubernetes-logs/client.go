@@ -65,7 +65,7 @@ func (c *clientCache) store(k string, v kubernetes.Interface) {
 // sidecar in the same cluster).
 func buildRestConfig(ctx context.Context, host sdk.HostClient) (*rest.Config, error) {
 	if host != nil {
-		conn, err := host.GetConnection(ctx, "kubernetes", "")
+		conn, err := host.GetConnectionByType(ctx, sdk.ConnectionTypeKubernetes)
 		if err == nil && conn != nil && conn.Properties != nil {
 			if kc, ok := conn.Properties.AsMap()["kubeconfig"].(string); ok && kc != "" {
 				cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(kc))

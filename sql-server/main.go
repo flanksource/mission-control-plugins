@@ -12,8 +12,8 @@ import (
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqldefrag"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqltrace"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqldefrag"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqltrace"
 )
 
 // Operation names — exported as constants so the frontend's API client can
