@@ -1,4 +1,4 @@
-name: Build Plugins
+name: Test Plugins
 
 on:
   pull_request:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build ${{ matrix.plugin }}
+  test:
+    name: Test ${{ matrix.plugin }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -60,7 +60,7 @@ jobs:
           go-version-file: ${{ matrix.plugin }}/go.mod
           cache-dependency-path: ${{ matrix.plugin }}/go.sum
 
-      - name: Build
+      - name: Test
         if: steps.changes.outputs.changed == 'true'
         working-directory: ${{ matrix.plugin }}
-        run: go build ./...
+        run: go test ./...

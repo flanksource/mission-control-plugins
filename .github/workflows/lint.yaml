@@ -1,4 +1,4 @@
-name: Build Plugins
+name: Lint Plugins
 
 on:
   pull_request:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build ${{ matrix.plugin }}
+  lint:
+    name: Lint ${{ matrix.plugin }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -60,7 +60,9 @@ jobs:
           go-version-file: ${{ matrix.plugin }}/go.mod
           cache-dependency-path: ${{ matrix.plugin }}/go.sum
 
-      - name: Build
+      - name: Lint
         if: steps.changes.outputs.changed == 'true'
-        working-directory: ${{ matrix.plugin }}
-        run: go build ./...
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ${{ matrix.plugin }}
