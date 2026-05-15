@@ -237,7 +237,7 @@ func waitForListener(ctx context.Context, addr string) error {
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/", nil)
 			resp, err := http.DefaultClient.Do(req)
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				return nil
 			}
 		}

@@ -38,13 +38,20 @@ func main() {
 			os.Exit(1)
 		}
 		// Hash the relative path so renames bust the cache too.
-		fmt.Fprintf(hasher, "%s\x00", path)
+		if _, err := fmt.Fprintf(hasher, "%s\x00", path); err != nil {
+			_ = f.Close()
+			fmt.Fprintf(os.Stderr, "gen-checksum: hash path %s: %v\n", path, err)
+			os.Exit(1)
+		}
 		if _, err := io.Copy(hasher, f); err != nil {
-			f.Close()
+			_ = f.Close()
 			fmt.Fprintf(os.Stderr, "gen-checksum: read %s: %v\n", path, err)
 			os.Exit(1)
 		}
-		f.Close()
+		if err := f.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "gen-checksum: close %s: %v\n", path, err)
+			os.Exit(1)
+		}
 	}
 
 	sum := hex.EncodeToString(hasher.Sum(nil))

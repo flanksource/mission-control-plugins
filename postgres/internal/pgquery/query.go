@@ -64,7 +64,7 @@ func Execute(ctx context.Context, db *gorm.DB, statement string, opts Options) (
 		if err != nil {
 			return res, err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		if err := readRows(rows, opts.RowLimit, res); err != nil {
 			return res, err
 		}
@@ -97,7 +97,7 @@ func Explain(ctx context.Context, db *gorm.DB, statement string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("explain: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var parts []string
 	for rows.Next() {

@@ -128,25 +128,6 @@ func widgetForKind(kind string) string {
 	}
 }
 
-func legacyCoreGadgetsForTests(tag string) []GadgetSpec {
-	all := supportedGadgets(tag)
-	ids := map[string]struct{}{
-		"profile_cpu":      {},
-		"snapshot_process": {},
-		"trace_dns":        {},
-		"trace_exec":       {},
-		"trace_open":       {},
-		"trace_tcp":        {},
-	}
-	out := make([]GadgetSpec, 0, len(ids))
-	for _, gadget := range all {
-		if _, ok := ids[gadget.ID]; ok {
-			out = append(out, gadget)
-		}
-	}
-	return out
-}
-
 func gadgetByID(id, tag string) (GadgetSpec, bool) {
 	for _, g := range supportedGadgets(tag) {
 		if g.ID == id {

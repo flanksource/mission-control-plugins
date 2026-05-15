@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -37,12 +36,3 @@ var _ = ginkgo.Describe("sessions", func() {
 		Expect(snapshot.StoppedAt).ToNot(BeNil())
 	})
 })
-
-type fakeRunner struct {
-	err error
-}
-
-func (f fakeRunner) Run(ctx context.Context, req TraceRunRequest, emit func(TraceEvent)) error {
-	emit(TraceEvent{Raw: `{"comm":"sh"}`})
-	return f.err
-}

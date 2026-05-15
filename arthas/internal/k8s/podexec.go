@@ -68,7 +68,7 @@ func CopyFileToPod(ctx context.Context, restCfg *rest.Config, namespace, pod, co
 	if err != nil {
 		return 0, fmt.Errorf("open %s: %w", localPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {

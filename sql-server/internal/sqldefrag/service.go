@@ -258,7 +258,7 @@ func executeRun(ctx context.Context, db *gorm.DB, maintenanceDB, query string, a
 	if err != nil {
 		return nil, nil, fmt.Errorf("open sql connection: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	maintenanceDB = normalizeMaintenanceDatabase(maintenanceDB)
 	if _, err := conn.ExecContext(ctx, "USE "+bracketName(maintenanceDB)); err != nil {
@@ -274,7 +274,7 @@ func executeRun(ctx context.Context, db *gorm.DB, maintenanceDB, query string, a
 	if err != nil {
 		return nil, nil, fmt.Errorf("execute usp_AdaptiveIndexDefrag: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var messages []RunMessage
 	var resultSets []RunResultSet
@@ -837,7 +837,7 @@ func loadScript(ctx context.Context, source string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("download %s: %w", source, err)
 		}
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 		if res.StatusCode < 200 || res.StatusCode >= 300 {
 			return "", fmt.Errorf("download %s: HTTP %d", source, res.StatusCode)
 		}

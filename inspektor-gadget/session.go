@@ -130,11 +130,26 @@ func (s *TraceSession) AddEvent(event TraceEvent) {
 func (s *TraceSession) Snapshot() TraceSession {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := *s
-	out.cancel = nil
-	out.events = nil
-	out.buffer = nil
-	return out
+	return TraceSession{
+		ID:           s.ID,
+		GadgetID:     s.GadgetID,
+		GadgetName:   s.GadgetName,
+		GadgetKind:   s.GadgetKind,
+		GadgetWidget: s.GadgetWidget,
+		GadgetImage:  s.GadgetImage,
+		GadgetTag:    s.GadgetTag,
+		DocsURL:      s.DocsURL,
+		Target:       s.Target,
+		Params:       s.Params,
+		Diagnostics:  s.Diagnostics,
+		State:        s.State,
+		StartedAt:    s.StartedAt,
+		StoppedAt:    s.StoppedAt,
+		Error:        s.Error,
+		EventCount:   s.EventCount,
+		max:          s.max,
+		seq:          s.seq,
+	}
 }
 
 func (s *TraceSession) Events() []TraceEvent {
