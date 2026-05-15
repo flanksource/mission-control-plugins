@@ -60,7 +60,7 @@ func (c *clientCache) Client(ctx context.Context, host sdk.HostClient) (kubernet
 
 func buildRestConfig(ctx context.Context, host sdk.HostClient) (*rest.Config, error) {
 	if host != nil {
-		conn, err := host.GetConnection(ctx, "kubernetes", "")
+		conn, err := host.GetConnectionByType(ctx, sdk.ConnectionTypeKubernetes)
 		if err == nil && conn != nil && conn.Properties != nil {
 			if kc, ok := conn.Properties.AsMap()["kubeconfig"].(string); ok && kc != "" {
 				if cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(kc)); err == nil {

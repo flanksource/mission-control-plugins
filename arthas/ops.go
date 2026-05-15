@@ -12,8 +12,8 @@ import (
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/arthas/internal/arthas"
-	arthask8s "github.com/flanksource/incident-commander/plugins/arthas/internal/k8s"
+	"github.com/flanksource/mission-control-plugins/arthas/internal/arthas"
+	arthask8s "github.com/flanksource/mission-control-plugins/arthas/internal/k8s"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

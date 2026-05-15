@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/postgres/internal/pgslow"
-	"github.com/flanksource/incident-commander/plugins/postgres/internal/pgvacuum"
+	"github.com/flanksource/mission-control-plugins/postgres/internal/pgslow"
+	"github.com/flanksource/mission-control-plugins/postgres/internal/pgvacuum"
 )
 
 type LimitParams struct {

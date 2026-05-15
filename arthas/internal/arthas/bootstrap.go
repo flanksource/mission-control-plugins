@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flanksource/incident-commander/plugins/arthas/internal/k8s"
+	"github.com/flanksource/mission-control-plugins/arthas/internal/k8s"
 	"k8s.io/client-go/rest"
 )
 

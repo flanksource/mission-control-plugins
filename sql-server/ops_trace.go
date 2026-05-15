@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqltrace"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/xetrace"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqltrace"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/xetrace"
 )
 
 // TraceStartParams maps to xetrace.CreateOptions plus a Duration. The

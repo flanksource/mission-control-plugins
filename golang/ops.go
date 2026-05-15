@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	golangk8s "github.com/flanksource/incident-commander/plugins/golang/internal/k8s"
+	golangk8s "github.com/flanksource/mission-control-plugins/golang/internal/k8s"
 )
 
 type SessionCreateParams struct {

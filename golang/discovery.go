@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	golangk8s "github.com/flanksource/incident-commander/plugins/golang/internal/k8s"
+	golangk8s "github.com/flanksource/mission-control-plugins/golang/internal/k8s"
 	"k8s.io/client-go/rest"
 )
 

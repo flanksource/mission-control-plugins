@@ -53,7 +53,7 @@ func (c *connectionCache) For(ctx context.Context, host sdk.HostClient, configIt
 	if host == nil {
 		return nil, fmt.Errorf("no host client (HTTP handlers must call operations to access the SQL connection)")
 	}
-	conn, err := host.GetConnection(ctx, "sql", configItemID)
+	conn, err := host.GetConnectionForConfig(ctx, configItemID)
 	if err != nil {
 		return nil, fmt.Errorf("get sql connection: %w", err)
 	}

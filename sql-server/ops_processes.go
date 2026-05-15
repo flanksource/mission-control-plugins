@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqlprocesses"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqlprocesses"
 )
 
 // databasesList returns the names of every ONLINE database on the instance,

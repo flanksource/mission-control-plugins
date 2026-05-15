@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
-	"github.com/flanksource/incident-commander/plugins/sql-server/internal/sqldefrag"
+	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqldefrag"
 )
 
 type DefragInstallParams struct {

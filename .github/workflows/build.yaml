@@ -1,0 +1,66 @@
+name: Build Plugins
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.plugin }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - postgres
+          - sql-server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check plugin changes
+        id: changes
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_REF"
+            changed_files=$(git diff --name-only "origin/$BASE_REF"...HEAD)
+          elif [ -n "$BEFORE" ] && ! printf '%s' "$BEFORE" | grep -q '^0\+$'; then
+            changed_files=$(git diff --name-only "$BEFORE"..HEAD)
+          else
+            changed_files=$(git diff --name-only HEAD~1..HEAD)
+          fi
+
+          if printf '%s\n' "$changed_files" | grep -q "^$PLUGIN/"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.plugin }}/go.mod
+          cache-dependency-path: ${{ matrix.plugin }}/go.sum
+
+      - name: Build
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: ${{ matrix.plugin }}
+        run: go build ./...
