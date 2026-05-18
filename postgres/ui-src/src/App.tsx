@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { Activity, Database, Gauge, ListTree, Lock, Search } from "lucide-react";
 import { configIDFromURL } from "./lib/api";
 import { StatsTab } from "./pages/StatsTab";
@@ -28,6 +28,10 @@ function initialTab(): TabKey {
 export function App() {
   const [active, setActive] = useState<TabKey>(initialTab);
   const configID = configIDFromURL();
+
+  useEffect(() => {
+    window.parent?.postMessage({ type: "mc.tab.ready" }, "*");
+  }, []);
 
   if (!configID) {
     return (

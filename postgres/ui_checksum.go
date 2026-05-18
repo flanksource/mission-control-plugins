@@ -5,4 +5,4 @@ package main
 // uiChecksum is the sha256 of every file embedded under ui/.
 // Regenerated on every `task build:plugin:postgres` or
 // `go generate ./plugins/postgres/...`.
-const uiChecksum = "647fd9babe03f25648ac8870d0a4a379acab0380c5ff30ad3d7e4c999dd26297"
+const uiChecksum = "3d97135ed5ec83b76cadf2cdc2761e45a537b1cdeb760715aa091b01a4a16f79"

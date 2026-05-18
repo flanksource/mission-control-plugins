@@ -9,6 +9,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/http"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -27,6 +28,7 @@ const (
 	OpSlowQueries        = "slow-queries"
 	OpSlowQueriesInstall = "slow-queries-install"
 	OpVacuumStats        = "vacuum-stats"
+	OpVersion            = "version"
 )
 
 //go:generate go run ./internal/gen-checksum
@@ -87,14 +89,34 @@ func (p *PostgresPlugin) Operations() []sdk.Operation {
 		OpSlowQueries:        p.slowQueries,
 		OpSlowQueriesInstall: p.slowQueriesInstall,
 		OpVacuumStats:        p.vacuumStats,
+		OpVersion:            p.version,
+	}
+	httpHandlers := map[string]http.Handler{
+		OpVersion: sdk.VersionHandler(buildInfo()),
 	}
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
-		if h, ok := handlers[d.Name]; ok {
-			out = append(out, sdk.Operation{Def: d, Handler: h})
+		op := sdk.Operation{Def: d}
+		op.Handler = handlers[d.Name]
+		op.HTTPHandler = httpHandlers[d.Name]
+		if op.Handler != nil || op.HTTPHandler != nil {
+			out = append(out, op)
 		}
 	}
 	return out
+}
+
+func buildInfo() sdk.BuildInfo {
+	return sdk.BuildInfo{
+		Name:       "postgres",
+		Version:    Version,
+		BuildDate:  BuildDate,
+		UIChecksum: uiChecksum,
+	}
+}
+
+func (p *PostgresPlugin) version(context.Context, sdk.InvokeCtx) (any, error) {
+	return buildInfo(), nil
 }
 
 func operationDefs() []*pluginpb.OperationDef {
@@ -107,6 +129,15 @@ func operationDefs() []*pluginpb.OperationDef {
 		return d
 	}
 	return []*pluginpb.OperationDef{
+		{
+			Name:        OpVersion,
+			Description: "Return plugin build metadata.",
+			Scope:       "config",
+			ResultMime:  "application/json",
+			Http: []*pluginpb.HTTPBinding{
+				{Method: http.MethodGet},
+			},
+		},
 		mk(OpStats, "Managed-safe Postgres instance and database health snapshot."),
 		destructive(OpQuery, "Execute an ad-hoc SQL statement and return rows + columns."),
 		mk(OpExplain, "Return EXPLAIN (FORMAT JSON) for the given statement without ANALYZE."),
