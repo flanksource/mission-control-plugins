@@ -29,7 +29,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: main
-          token: ${{ secrets.FLANKBOT }}
           fetch-depth: 0
 
       - name: Create plugin release tag
@@ -41,5 +40,5 @@ jobs:
           additional-packages: |
             conventional-changelog-conventionalcommits
         env:
-          GITHUB_TOKEN: ${{ secrets.FLANKBOT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLUGIN: ${{ inputs.plugin }}
