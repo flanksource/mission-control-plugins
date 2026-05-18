@@ -2,11 +2,13 @@ apiVersion: mission-control.flanksource.com/v1
 kind: Plugin
 metadata:
   name: kubernetes-logs
+  namespace: default
 spec:
   source: kubernetes-logs
-  version: "0.1.0"
+  version: '0.1.0'
   selector:
     types:
+      - Kubernetes::Namespace
       - Kubernetes::Pod
       - Kubernetes::Deployment
       - Kubernetes::StatefulSet
@@ -14,3 +16,17 @@ spec:
       - Kubernetes::ReplicaSet
       - Kubernetes::Job
       - Kubernetes::CronJob
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-kubernetes-logs-plugin-to-read-connection
+  namespace: default
+spec:
+  subject:
+    plugin: default/kubernetes-logs
+  actions:
+    - read
+  object:
+    connections:
+      - name: '*' # allows reading any connection
