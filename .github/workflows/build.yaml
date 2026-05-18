@@ -73,22 +73,13 @@ jobs:
           version: 10.33.0
           run_install: false
 
-      - name: Build UI
+      - name: Setup Task
         if: steps.changes.outputs.changed == 'true'
-        working-directory: ${{ matrix.plugin }}/ui-src
+        uses: arduino/setup-task@v2
+
+      - name: Build plugin
+        if: steps.changes.outputs.changed == 'true'
         env:
-          PLUGIN_VERSION: ${{ github.sha }}
-          PLUGIN_BUILD_DATE: ${{ github.event.repository.updated_at }}
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
-
-      - name: Regenerate UI checksum
-        if: steps.changes.outputs.changed == 'true'
-        working-directory: ${{ matrix.plugin }}
-        run: go generate ./...
-
-      - name: Build Go binary
-        if: steps.changes.outputs.changed == 'true'
-        working-directory: ${{ matrix.plugin }}
-        run: go build .
+          VERSION: ${{ github.sha }}
+          BUILD_DATE: ${{ github.event.repository.updated_at }}
+        run: task build:plugin:${{ matrix.plugin }} VERSION="$VERSION" BUILD_DATE="$BUILD_DATE"
