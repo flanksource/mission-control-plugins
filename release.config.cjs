@@ -18,8 +18,6 @@ module.exports = {
           { type: "fix", scope: plugin, release: "patch" },
           { type: "perf", scope: plugin, release: "patch" },
           { type: "revert", scope: plugin, release: "patch" },
-          { scope: "*", release: false },
-          { type: "*", release: false },
         ],
       },
     ],
