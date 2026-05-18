@@ -1,0 +1,45 @@
+name: Tag Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: Plugin to release
+        required: true
+        type: choice
+        options:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - postgres
+          - sql-server
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  tag:
+    name: Tag ${{ inputs.plugin }} release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.FLANKBOT }}
+          fetch-depth: 0
+
+      - name: Create plugin release tag
+        id: semantic
+        uses: codfish/semantic-release-action@v5
+        with:
+          # release.config.cjs uses this non-default preset to parse scoped
+          # Conventional Commits like `fix(arthas): ...`.
+          additional-packages: |
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.FLANKBOT }}
+          PLUGIN: ${{ inputs.plugin }}
