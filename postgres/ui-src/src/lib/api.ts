@@ -1,24 +1,25 @@
 // API client for the postgres plugin's iframe.
 //
 // The iframe is served from `/api/plugins/postgres/ui/` (the host's
-// reverse proxy). The plugin's operations live one level up at
-// `/api/plugins/postgres/operations/<name>` — which is NOT under the iframe
-// origin (`./`). To reach them we go up two segments.
+// reverse proxy). Unary plugin operations are exposed by Mission Control at
+// `/api/plugins/postgres/invoke/<name>`.
 //
-// `config_id` is the catalog item the user is viewing. The host proxy reads
-// it from the iframe URL and the
-// operations endpoint accepts it as a query param.
+// `config_id` is the catalog item the user is viewing. The invoke endpoint
+// accepts it as a query param.
 
 export const PLUGIN_NAME = "postgres";
 
+function pluginBasePath(): string {
+  const match = window.location.pathname.match(/^(.*\/api\/plugins\/[^/]+)\/ui(?:\/.*)?$/);
+  if (match) return match[1];
+  return `/api/plugins/${PLUGIN_NAME}`;
+}
+
 function operationURL(op: string, configID: string): string {
-  // The iframe origin path is /api/plugins/postgres/ui/ — strip /ui/ and
-  // append /operations/<op> to reach the host's operations endpoint.
-  // We construct the URL relative to window.location to honour the
-  // current host:port (works in dev with the vite proxy and in prod
-  // under the iframe).
-  const base = window.location.pathname.replace(/\/ui\/.*$/, "");
-  const url = new URL(base + "/operations/" + op, window.location.origin);
+  const url = new URL(
+    `${pluginBasePath()}/invoke/${encodeURIComponent(op)}`,
+    window.location.origin,
+  );
   if (configID) url.searchParams.set("config_id", configID);
   return url.toString();
 }
@@ -71,8 +72,7 @@ export async function callOp<T = unknown>(
     throw new OpError(op, res.status, `${op} ${res.status}: ${message}`, body);
   }
   // The plugin SDK returns application/clicky+json — the payload is the
-  // operation's `any` return wrapped in the clicky envelope. We parse as
-  // JSON; pages pull out the data field they need.
+  // operation handler's JSON result. We parse it directly.
   return (await res.json()) as T;
 }
 

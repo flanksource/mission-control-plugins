@@ -43,7 +43,7 @@ func (c *connectionCache) For(ctx context.Context, host sdk.HostClient, configIt
 		return existing, nil
 	}
 
-	conn, err := host.GetConnectionForConfig(ctx, configItemID)
+	conn, err := host.GetConnectionByType(ctx, "sql")
 	if err != nil {
 		return nil, fmt.Errorf("get sql connection: %w", err)
 	}
