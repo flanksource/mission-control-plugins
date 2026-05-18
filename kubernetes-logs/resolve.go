@@ -22,6 +22,7 @@ import (
 //
 // Supported kinds (case-insensitive):
 //
+//   - Namespace           — every Pod in the namespace
 //   - Pod                 — itself
 //   - Deployment          — via ReplicaSet selector
 //   - StatefulSet         — via selector
@@ -50,6 +51,9 @@ func resolvePods(ctx context.Context, cli kubernetes.Interface, host sdk.HostCli
 	}
 
 	switch strings.ToLower(kind) {
+	case "namespace", "kubernetes::namespace":
+		return podsByNamespace(ctx, cli, name)
+
 	case "pod", "kubernetes::pod":
 		pod, err := cli.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -125,6 +129,14 @@ func extractKubeRef(item *pluginpb.ConfigItem) (kind, namespace, name string) {
 	namespace = item.Tags["namespace"]
 	name = item.Name
 	return
+}
+
+func podsByNamespace(ctx context.Context, cli kubernetes.Interface, namespace string) ([]corev1.Pod, error) {
+	list, err := cli.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
 }
 
 func podsBySelector(ctx context.Context, cli kubernetes.Interface, namespace string, sel map[string]string) ([]corev1.Pod, error) {
