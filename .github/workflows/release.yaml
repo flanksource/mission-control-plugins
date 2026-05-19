@@ -103,11 +103,13 @@ jobs:
 
       - name: Build plugin
         env:
-          CGO_ENABLED: "0"
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.arch }}
           MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
-        run: task plugin:build PLUGIN="${{ inputs.plugin }}" VERSION="v${{ needs.tag.outputs.version }}"
+        run: >-
+          task plugin:build
+          PLUGIN="${{ inputs.plugin }}"
+          VERSION="v${{ needs.tag.outputs.version }}"
+          TARGET_GOOS="${{ matrix.os }}"
+          TARGET_GOARCH="${{ matrix.arch }}"
 
       - name: Package artifact
         env:
