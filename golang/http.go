@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -12,21 +15,36 @@ import (
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
-func (p *GolangPlugin) HTTPHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/pprof/", p.httpProxyPprof)
-	mux.HandleFunc("/profiles/", p.httpProfile)
-	mux.Handle("/version", sdk.VersionHandler(sdk.BuildInfo{
-		Name:       pluginName,
-		Version:    Version,
-		BuildDate:  BuildDate,
-		UIChecksum: uiChecksum,
-	}))
-	return mux
+func (p *GolangPlugin) httpInvoke(operation string, handler func(context.Context, sdk.InvokeCtx) (any, error)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() { _ = r.Body.Close() }()
+		params, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if len(strings.TrimSpace(string(params))) == 0 {
+			params = []byte("{}")
+		}
+		res, err := handler(r.Context(), sdk.InvokeCtx{
+			Operation:    operation,
+			ParamsJSON:   params,
+			ConfigItemID: sdk.ConfigItemIDFromContext(r.Context()),
+			Host:         sdk.HostClientFromContext(r.Context()),
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 }
 
 func (p *GolangPlugin) httpProxyPprof(w http.ResponseWriter, r *http.Request) {
-	rest := strings.TrimPrefix(r.URL.Path, "/pprof/")
+	rest := operationSubpath(r, OpHTTPPprof)
 	id, tail, _ := strings.Cut(rest, "/")
 	if id == "" {
 		http.Error(w, "missing session id", http.StatusBadRequest)
@@ -54,7 +72,7 @@ func (p *GolangPlugin) httpProxyPprof(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
-	rest := strings.TrimPrefix(r.URL.Path, "/profiles/")
+	rest := operationSubpath(r, OpHTTPProfiles)
 	id, tail, _ := strings.Cut(rest, "/")
 	if id == "" || tail == "" {
 		http.Error(w, "expected /profiles/{sessionID}/{runID|heap|cpu|trace}", http.StatusBadRequest)
@@ -119,6 +137,13 @@ func (p *GolangPlugin) proxyProfileViewer(w http.ResponseWriter, r *http.Request
 	r.URL.Path = "/" + strings.TrimLeft(subPath, "/")
 	r.URL.RawPath = ""
 	proxy.ServeHTTP(w, r)
+}
+
+func operationSubpath(r *http.Request, operation string) string {
+	if p := strings.Trim(r.URL.Query().Get("path"), "/"); p != "" {
+		return p
+	}
+	return strings.Trim(strings.TrimPrefix(r.URL.Path, "/__mc/operations/"+operation), "/")
 }
 
 func writeProfileDownload(w http.ResponseWriter, sessionID, name, kind, source string, data []byte) {

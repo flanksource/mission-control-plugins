@@ -9,6 +9,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/http"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -26,6 +27,8 @@ const (
 	OpProfileStatus   = "profile-status"
 	OpProfileStop     = "profile-stop"
 	OpProfileRunsList = "profile-runs-list"
+	OpHTTPPprof       = "pprof"
+	OpHTTPProfiles    = "profiles"
 	pluginName        = "golang"
 )
 
@@ -143,8 +146,15 @@ func (p *GolangPlugin) Operations() []sdk.Operation {
 	defs := operationDefs()
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
-		if h, ok := handlers[d.Name]; ok {
-			out = append(out, sdk.Operation{Def: d, Handler: h})
+		switch d.Name {
+		case OpHTTPPprof:
+			out = append(out, sdk.Operation{Def: d, HTTPHandler: http.HandlerFunc(p.httpProxyPprof)})
+		case OpHTTPProfiles:
+			out = append(out, sdk.Operation{Def: d, HTTPHandler: http.HandlerFunc(p.httpProfile)})
+		default:
+			if h, ok := handlers[d.Name]; ok {
+				out = append(out, sdk.Operation{Def: d, Handler: h, HTTPHandler: p.httpInvoke(d.Name, h)})
+			}
 		}
 	}
 	return out
@@ -152,7 +162,21 @@ func (p *GolangPlugin) Operations() []sdk.Operation {
 
 func operationDefs() []*pluginpb.OperationDef {
 	mk := func(name, desc string) *pluginpb.OperationDef {
-		return &pluginpb.OperationDef{Name: name, Description: desc, Scope: "config", ResultMime: sdk.ClickyResultMimeType}
+		return &pluginpb.OperationDef{
+			Name:        name,
+			Description: desc,
+			Scope:       "config",
+			ResultMime:  sdk.ClickyResultMimeType,
+			Http:        []*pluginpb.HTTPBinding{{Method: http.MethodPost}},
+		}
+	}
+	mkHTTP := func(name, desc string) *pluginpb.OperationDef {
+		return &pluginpb.OperationDef{
+			Name:        name,
+			Description: desc,
+			Scope:       "config",
+			Http:        []*pluginpb.HTTPBinding{{Method: http.MethodGet}},
+		}
 	}
 	return []*pluginpb.OperationDef{
 		mk(OpPodsList, "List ready target pods for the selected Kubernetes workload."),
@@ -166,6 +190,8 @@ func operationDefs() []*pluginpb.OperationDef {
 		mk(OpProfileStatus, "Read a profile run status."),
 		mk(OpProfileStop, "Stop a running profile run."),
 		mk(OpProfileRunsList, "List recent profile runs for a diagnostics session."),
+		mkHTTP(OpHTTPPprof, "Proxy the selected session's pprof HTTP endpoint."),
+		mkHTTP(OpHTTPProfiles, "Download captured profiles or proxy the interactive pprof viewer."),
 	}
 }
 

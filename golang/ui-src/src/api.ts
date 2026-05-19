@@ -71,17 +71,24 @@ export function configIDFromURL(): string {
   return new URLSearchParams(window.location.search).get("config_id") ?? "";
 }
 
+function pluginBasePath(): string {
+  return window.location.pathname.replace(/\/ui(?:\/.*)?$/, "");
+}
+
 function operationURL(op: string): string {
-  const base = window.location.pathname.replace(/\/ui\/.*$/, "");
-  const url = new URL(base + "/operations/" + op, window.location.origin);
+  const url = new URL(pluginBasePath() + "/proxy/" + op, window.location.origin);
   const configID = configIDFromURL();
   if (configID) url.searchParams.set("config_id", configID);
   return url.toString();
 }
 
 export function pluginURL(path: string): string {
-  const base = window.location.pathname.replace(/\/ui\/.*$/, "");
-  return new URL(base + "/" + path.replace(/^\//, ""), window.location.origin).toString();
+  const [op, ...rest] = path.replace(/^\//, "").split("/");
+  const url = new URL(pluginBasePath() + "/proxy/" + op, window.location.origin);
+  const configID = configIDFromURL();
+  if (configID) url.searchParams.set("config_id", configID);
+  if (rest.length > 0) url.searchParams.set("path", rest.join("/"));
+  return url.toString();
 }
 
 export async function callOp<T>(op: string, params: Record<string, unknown> = {}): Promise<T> {
