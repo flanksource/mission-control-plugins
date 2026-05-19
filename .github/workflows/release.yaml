@@ -35,7 +35,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
-    name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.target.os }}/${{ matrix.target.arch }})
+    name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.os }}/${{ matrix.arch }})
     needs: tag
     if: needs.tag.outputs.published == 'true'
     runs-on: ubuntu-latest
@@ -49,23 +49,12 @@ jobs:
           - kubernetes-logs
           - postgres
           - sql-server
-        target:
-          - os: linux
-            arch: amd64
-            format: tar.gz
-          - os: linux
-            arch: arm64
-            format: tar.gz
-          - os: darwin
-            arch: amd64
-            format: tar.gz
-          - os: darwin
-            arch: arm64
-            format: tar.gz
-          - os: windows
-            arch: amd64
-            format: zip
-            ext: .exe
+        os:
+          - linux
+          - darwin
+        arch:
+          - amd64
+          - arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -102,38 +91,31 @@ jobs:
           task plugin:build
           PLUGIN="${{ matrix.plugin }}"
           VERSION="${{ needs.tag.outputs.tag }}"
-          TARGET_GOOS="${{ matrix.target.os }}"
-          TARGET_GOARCH="${{ matrix.target.arch }}"
+          TARGET_GOOS="${{ matrix.os }}"
+          TARGET_GOARCH="${{ matrix.arch }}"
 
       - name: Package artifact
         env:
           PLUGIN: ${{ matrix.plugin }}
           VERSION: ${{ needs.tag.outputs.tag }}
-          OS: ${{ matrix.target.os }}
-          ARCH: ${{ matrix.target.arch }}
-          EXT: ${{ matrix.target.ext }}
-          FORMAT: ${{ matrix.target.format }}
+          OS: ${{ matrix.os }}
+          ARCH: ${{ matrix.arch }}
         run: |
           name="${PLUGIN}_${VERSION}_${OS}_${ARCH}"
           package_dir="dist/$name"
           mkdir -p "$package_dir"
 
-          cp "dist/bin/$PLUGIN" "$package_dir/$PLUGIN$EXT"
+          cp "dist/bin/$PLUGIN" "$package_dir/${PLUGIN}_mc_plugin"
           cp "$PLUGIN/Plugin.yaml" "$package_dir/Plugin.yaml"
 
-          if [ "$FORMAT" = "zip" ]; then
-            (cd dist && zip -qr "$name.zip" "$name")
-          else
-            tar -czf "dist/$name.tar.gz" -C dist "$name"
-          fi
+          tar -czf "dist/$name.tar.gz" -C dist "$name"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}
+          name: ${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}
           path: |
-            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}.tar.gz
-            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}.zip
+            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
           if-no-files-found: error
 
   publish-assets:
@@ -154,9 +136,9 @@ jobs:
         working-directory: dist
         run: |
           if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum *.tar.gz *.zip > "${{ needs.tag.outputs.tag }}_checksums.txt"
+            sha256sum *.tar.gz > "${{ needs.tag.outputs.tag }}_checksums.txt"
           else
-            shasum -a 256 *.tar.gz *.zip > "${{ needs.tag.outputs.tag }}_checksums.txt"
+            shasum -a 256 *.tar.gz > "${{ needs.tag.outputs.tag }}_checksums.txt"
           fi
 
       - name: Upload release assets
@@ -166,5 +148,4 @@ jobs:
           make_latest: true
           files: |
             dist/*.tar.gz
-            dist/*.zip
             dist/${{ needs.tag.outputs.tag }}_checksums.txt
