@@ -129,9 +129,20 @@ type Reader struct {
 func (r Reader) Read(p []byte) (int, error) { return r.R.Read(p) }
 
 func writeSSE(w http.ResponseWriter, f http.Flusher, event, data string) {
-	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+	if _, err := fmt.Fprintf(w, "event: %s\n", event); err != nil {
 		return
 	}
+
+	for line := range strings.SplitSeq(data, "\n") {
+		if _, err := fmt.Fprintf(w, "data: %s\n", line); err != nil {
+			return
+		}
+	}
+
+	if _, err := fmt.Fprint(w, "\n"); err != nil {
+		return
+	}
+
 	f.Flush()
 }
 
