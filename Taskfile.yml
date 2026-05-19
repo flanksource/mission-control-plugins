@@ -319,12 +319,18 @@ tasks:
     vars:
       PLUGIN_PATH:
         sh: echo "${MISSION_CONTROL_PLUGIN_PATH:-$HOME/.mission-control/plugins}"
+      TARGET_GOOS: '{{.TARGET_GOOS | default ""}}'
+      TARGET_GOARCH: '{{.TARGET_GOARCH | default ""}}'
     cmds:
       - mkdir -p {{.PLUGIN_PATH}}
-      - >-
-        cd {{.PLUGIN}} && go build -o {{.PLUGIN_PATH}}/{{.PLUGIN}}
-        -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'"
-        .
+      - |
+        set -euo pipefail
+        goos="{{.TARGET_GOOS}}"
+        goarch="{{.TARGET_GOARCH}}"
+        env_args=(CGO_ENABLED=0)
+        if [ -n "$goos" ]; then env_args+=(GOOS="$goos"); fi
+        if [ -n "$goarch" ]; then env_args+=(GOARCH="$goarch"); fi
+        (cd {{.PLUGIN}} && env "${env_args[@]}" go build -o {{.PLUGIN_PATH}}/{{.PLUGIN}} -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" .)
       - echo "Installed {{.PLUGIN_PATH}}/{{.PLUGIN}} version={{.VERSION}} built={{.BUILD_DATE}}"
     sources:
       - "{{.PLUGIN}}/**/*.go"
