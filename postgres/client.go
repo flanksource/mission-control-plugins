@@ -128,6 +128,7 @@ func withDefaultDatabase(raw, database string) (string, error) {
 	u, err := url.Parse(raw)
 	if err == nil && u.Scheme != "" {
 		u.Path = "/" + database
+		u.RawPath = "/" + url.PathEscape(database)
 		q := u.Query()
 		q.Del("dbname")
 		u.RawQuery = q.Encode()
@@ -144,12 +145,19 @@ func withKeywordDatabase(raw, database string) (string, error) {
 	replaced := false
 	for i, part := range parts {
 		if strings.HasPrefix(part, "dbname=") {
-			parts[i] = "dbname=" + database
+			parts[i] = "dbname=" + quoteKeywordValue(database)
 			replaced = true
 		}
 	}
 	if !replaced {
-		parts = append(parts, "dbname="+database)
+		parts = append(parts, "dbname="+quoteKeywordValue(database))
 	}
 	return strings.Join(parts, " "), nil
+}
+
+func quoteKeywordValue(v string) string {
+	if !strings.ContainsAny(v, " \t'\\") {
+		return v
+	}
+	return "'" + strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(v) + "'"
 }
