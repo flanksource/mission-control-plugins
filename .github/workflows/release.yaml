@@ -2,18 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      plugin:
-        description: Plugin to release
-        required: true
-        type: choice
-        options:
-          - arthas
-          - golang
-          - inspektor-gadget
-          - kubernetes-logs
-          - postgres
-          - sql-server
 
 permissions:
   contents: write
@@ -22,12 +10,12 @@ permissions:
 
 jobs:
   tag:
-    name: Tag ${{ inputs.plugin }} release
+    name: Tag release
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.semantic.outputs.new-release-published }}
       version: ${{ steps.semantic.outputs.release-version }}
-      tag: ${{ inputs.plugin }}/v${{ steps.semantic.outputs.release-version }}
+      tag: v${{ steps.semantic.outputs.release-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -35,27 +23,33 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Create plugin release tag
+      - name: Create release tag
         id: semantic
         uses: codfish/semantic-release-action@v5
         with:
           # release.config.cjs uses this non-default preset to parse scoped
-          # Conventional Commits like `fix(arthas): ...`.
+          # Conventional Commits like `fix(postgres): ...`.
           additional-packages: |
             conventional-changelog-conventionalcommits
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PLUGIN: ${{ inputs.plugin }}
 
   build:
-    name: Build ${{ needs.tag.outputs.tag }} (${{ matrix.os }}/${{ matrix.arch }})
+    name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.target.os }}/${{ matrix.target.arch }})
     needs: tag
     if: needs.tag.outputs.published == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
+        plugin:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - postgres
+          - sql-server
+        target:
           - os: linux
             arch: amd64
             format: tar.gz
@@ -76,14 +70,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ needs.tag.outputs.tag }}
           fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: ${{ inputs.plugin }}/go.mod
-          cache-dependency-path: ${{ inputs.plugin }}/go.sum
+          go-version-file: ${{ matrix.plugin }}/go.mod
+          cache-dependency-path: ${{ matrix.plugin }}/go.sum
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -106,19 +100,19 @@ jobs:
           MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
         run: >-
           task plugin:build
-          PLUGIN="${{ inputs.plugin }}"
-          VERSION="v${{ needs.tag.outputs.version }}"
-          TARGET_GOOS="${{ matrix.os }}"
-          TARGET_GOARCH="${{ matrix.arch }}"
+          PLUGIN="${{ matrix.plugin }}"
+          VERSION="${{ needs.tag.outputs.tag }}"
+          TARGET_GOOS="${{ matrix.target.os }}"
+          TARGET_GOARCH="${{ matrix.target.arch }}"
 
       - name: Package artifact
         env:
-          PLUGIN: ${{ inputs.plugin }}
-          VERSION: v${{ needs.tag.outputs.version }}
-          OS: ${{ matrix.os }}
-          ARCH: ${{ matrix.arch }}
-          EXT: ${{ matrix.ext }}
-          FORMAT: ${{ matrix.format }}
+          PLUGIN: ${{ matrix.plugin }}
+          VERSION: ${{ needs.tag.outputs.tag }}
+          OS: ${{ matrix.target.os }}
+          ARCH: ${{ matrix.target.arch }}
+          EXT: ${{ matrix.target.ext }}
+          FORMAT: ${{ matrix.target.format }}
         run: |
           name="${PLUGIN}_${VERSION}_${OS}_${ARCH}"
           package_dir="dist/$name"
@@ -136,10 +130,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}
+          name: ${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}
           path: |
-            dist/${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
-            dist/${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.zip
+            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}.tar.gz
+            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.target.os }}_${{ matrix.target.arch }}.zip
           if-no-files-found: error
 
   publish-assets:
@@ -160,17 +154,17 @@ jobs:
         working-directory: dist
         run: |
           if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum *.tar.gz *.zip > "${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_checksums.txt"
+            sha256sum *.tar.gz *.zip > "${{ needs.tag.outputs.tag }}_checksums.txt"
           else
-            shasum -a 256 *.tar.gz *.zip > "${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_checksums.txt"
+            shasum -a 256 *.tar.gz *.zip > "${{ needs.tag.outputs.tag }}_checksums.txt"
           fi
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag.outputs.tag }}
-          make_latest: false
+          make_latest: true
           files: |
             dist/*.tar.gz
             dist/*.zip
-            dist/${{ inputs.plugin }}_v${{ needs.tag.outputs.version }}_checksums.txt
+            dist/${{ needs.tag.outputs.tag }}_checksums.txt
