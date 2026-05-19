@@ -38,6 +38,12 @@ var _ = ginkgo.Describe("withDefaultDatabase", func() {
 			want:     "postgres://host/my%20db",
 		},
 		{
+			name:     "escapes slash in URL path database",
+			input:    "postgres://host/postgres",
+			database: "tenant/app",
+			want:     "postgres://host/tenant%2Fapp",
+		},
+		{
 			name:     "replaces keyword DSN dbname",
 			input:    "host=localhost user=postgres dbname=postgres sslmode=disable",
 			database: "appdb",
@@ -48,6 +54,18 @@ var _ = ginkgo.Describe("withDefaultDatabase", func() {
 			input:    "host=localhost user=postgres",
 			database: "appdb",
 			want:     "host=localhost user=postgres dbname=appdb",
+		},
+		{
+			name:     "quotes keyword DSN dbname",
+			input:    "host=localhost user=postgres",
+			database: "tenant app",
+			want:     "host=localhost user=postgres dbname='tenant app'",
+		},
+		{
+			name:     "escapes quoted keyword DSN dbname",
+			input:    "host=localhost user=postgres",
+			database: "team's app",
+			want:     "host=localhost user=postgres dbname='team\\'s app'",
 		},
 	} {
 		ginkgo.It(tt.name, func() {
