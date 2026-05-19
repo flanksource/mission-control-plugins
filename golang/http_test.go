@@ -11,10 +11,10 @@ import (
 var _ = ginkgo.Describe("HTTP handler", func() {
 	ginkgo.It("returns a useful error for missing pprof session", func() {
 		p := newPlugin()
-		req := httptest.NewRequest(http.MethodGet, "/pprof/missing/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/pprof?path=missing", nil)
 		rec := httptest.NewRecorder()
 
-		p.HTTPHandler().ServeHTTP(rec, req)
+		httpOp(p, OpHTTPPprof).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusNotFound))
 		Expect(rec.Body.String()).To(ContainSubstring("session not found"))
@@ -24,10 +24,10 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 		p := newPlugin()
 		sess := NewSession("default", "pod", "app", "app-0", "app", nil)
 		p.sessions.Add(sess)
-		req := httptest.NewRequest(http.MethodGet, "/profiles/"+sess.ID+"/unknown", nil)
+		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/profiles?path="+sess.ID+"/unknown", nil)
 		rec := httptest.NewRecorder()
 
-		p.HTTPHandler().ServeHTTP(rec, req)
+		httpOp(p, OpHTTPProfiles).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 	})
@@ -40,10 +40,10 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 		run.MarkDone([]byte("profile-bytes"), "pprof", nil)
 		p.profiles.Add(run)
 
-		req := httptest.NewRequest(http.MethodGet, "/profiles/"+sess.ID+"/"+run.ID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/profiles?path="+sess.ID+"/"+run.ID, nil)
 		rec := httptest.NewRecorder()
 
-		p.HTTPHandler().ServeHTTP(rec, req)
+		httpOp(p, OpHTTPProfiles).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(rec.Body.String()).To(Equal("profile-bytes"))
@@ -58,12 +58,21 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 		run, _ := NewProfileRun(sess.ID, "cpu", "auto", 30)
 		p.profiles.Add(run)
 
-		req := httptest.NewRequest(http.MethodGet, "/profiles/"+sess.ID+"/"+run.ID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/profiles?path="+sess.ID+"/"+run.ID, nil)
 		rec := httptest.NewRecorder()
 
-		p.HTTPHandler().ServeHTTP(rec, req)
+		httpOp(p, OpHTTPProfiles).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusConflict))
 		Expect(rec.Body.String()).To(ContainSubstring("not completed"))
 	})
 })
+
+func httpOp(p *GolangPlugin, name string) http.Handler {
+	for _, op := range p.Operations() {
+		if op.Def.Name == name {
+			return op.HTTPHandler
+		}
+	}
+	return http.NotFoundHandler()
+}
