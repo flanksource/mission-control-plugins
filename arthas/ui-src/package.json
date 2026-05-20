@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@flanksource/clicky-ui": "^0.2.1",
+    "@flanksource/plugin-ui-sdk": "file:vendor/plugin-ui-sdk",
     "@tanstack/react-query": "^5.80.7",
     "lucide-react": "^0.545.0",
     "preact": "^10.24.0"
