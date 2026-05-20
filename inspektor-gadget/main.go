@@ -9,6 +9,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/http"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -130,7 +131,7 @@ func (p *InspektorGadgetPlugin) Operations() []sdk.Operation {
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
 		if h, ok := handlers[d.Name]; ok {
-			out = append(out, sdk.Operation{Def: d, Handler: h})
+			out = append(out, sdk.Operation{Def: d, Handler: h, HTTPHandler: p.httpInvoke(d.Name, h)})
 		}
 	}
 	return out
@@ -138,7 +139,13 @@ func (p *InspektorGadgetPlugin) Operations() []sdk.Operation {
 
 func operationDefs() []*pluginpb.OperationDef {
 	mk := func(name, desc string) *pluginpb.OperationDef {
-		return &pluginpb.OperationDef{Name: name, Description: desc, Scope: "config", ResultMime: sdk.ClickyResultMimeType}
+		return &pluginpb.OperationDef{
+			Name:        name,
+			Description: desc,
+			Scope:       "config",
+			ResultMime:  sdk.ClickyResultMimeType,
+			Http:        []*pluginpb.HTTPBinding{{Method: http.MethodPost}},
+		}
 	}
 	return []*pluginpb.OperationDef{
 		mk(OpStatus, "Check Inspektor Gadget deployment readiness through the Kubernetes API."),
