@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: arthas
 spec:
-  source: arthas
+  source: arthas-mc-plugin
   version: "0.1.0"
   selector:
     types:
@@ -14,5 +14,4 @@ spec:
       - Kubernetes::ReplicaSet
       - Kubernetes::Job
       - Kubernetes::CronJob
-  connections:
-    kubernetes: {}
+  
