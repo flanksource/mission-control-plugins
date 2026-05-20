@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
 import {
   Button,
   DataTable,
@@ -169,18 +170,8 @@ function configId() {
   return new URLSearchParams(window.location.search).get("config_id") || "";
 }
 
-function hostOperationUrl(op: string) {
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get("config_id") || "";
-  return `/api/plugins/inspektor-gadget/operations/${op}${id ? `?config_id=${encodeURIComponent(id)}` : ""}`;
-}
-
 async function invoke<T>(op: string, body: unknown = {}): Promise<T> {
-  const res = await fetch(hostOperationUrl(op), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const res = await sdkInvoke(op, body);
   if (!res.ok) {
     throw new Error(await res.text());
   }
@@ -229,7 +220,7 @@ function App() {
 
   useEffect(() => {
     refresh().catch((err) => setError(String(err)));
-    window.parent?.postMessage({ type: "mc.tab.ready" }, "*");
+    ready();
   }, []);
 
   useEffect(() => {
