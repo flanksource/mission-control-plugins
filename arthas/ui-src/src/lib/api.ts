@@ -1,11 +1,6 @@
-export const PLUGIN_NAME = "arthas";
+import { invoke } from "@flanksource/plugin-ui-sdk";
 
-function operationURL(op: string, configID: string): string {
-  const base = window.location.pathname.replace(/\/ui\/.*$/, "");
-  const url = new URL(base + "/operations/" + op, window.location.origin);
-  if (configID) url.searchParams.set("config_id", configID);
-  return url.toString();
-}
+export const PLUGIN_NAME = "arthas";
 
 export class OpError extends Error {
   readonly status: number;
@@ -25,13 +20,7 @@ export async function callOp<T = unknown>(
   op: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {
-  const configID = configIDFromURL();
-  const res = await fetch(operationURL(op, configID), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify(params),
-  });
+  const res = await invoke(op, params);
   if (!res.ok) {
     const text = await res.text();
     let body: unknown = text;

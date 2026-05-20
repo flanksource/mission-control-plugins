@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, DensityProvider } from "@flanksource/clicky-ui";
+import { ready } from "@flanksource/plugin-ui-sdk";
 import { App } from "./App";
 import { logBanner } from "./version";
 import "./styles.css";
@@ -24,3 +25,5 @@ render(
   </ThemeProvider>,
   root,
 );
+
+ready();
