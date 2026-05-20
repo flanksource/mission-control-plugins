@@ -3,8 +3,8 @@ kind: Plugin
 metadata:
   name: inspektor-gadget
 spec:
-  source: inspektor-gadget
-  version: "0.1.0"
+  source: inspektor-gadget-mc-plugin
+  version: v1.0.2
   selector:
     types:
       - Kubernetes::Pod
@@ -14,5 +14,4 @@ spec:
       - Kubernetes::ReplicaSet
       - Kubernetes::Job
       - Kubernetes::CronJob
-  connections:
-    kubernetes: {}
+  
