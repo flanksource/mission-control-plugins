@@ -21,6 +21,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const sessionCreationTimeout = 5 * time.Minute
+
 type RunningPod struct {
 	Namespace  string   `json:"namespace"`
 	Name       string   `json:"name"`
@@ -44,6 +46,10 @@ type SessionCreateParams struct {
 	LocalHTTP      int    `json:"localHttp,omitempty"`
 	RemoteHTTP     int    `json:"remoteHttp,omitempty"`
 	SkipJDKInstall bool   `json:"skipJdkInstall,omitempty"`
+}
+
+type SessionCreationStatusParams struct {
+	JobID string `json:"jobId"`
 }
 
 type SessionDeleteParams struct {
@@ -91,6 +97,90 @@ func (p *ArthasPlugin) podsList(ctx context.Context, req sdk.InvokeCtx) (any, er
 }
 
 func (p *ArthasPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (any, error) {
+	if len(strings.TrimSpace(string(req.ParamsJSON))) == 0 {
+		req.ParamsJSON = []byte("{}")
+	} else {
+		req.ParamsJSON = append([]byte(nil), req.ParamsJSON...)
+	}
+
+	var params SessionCreateParams
+	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	target, err := p.createTarget(ctx, req, params)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := p.clients.RESTConfig(ctx, req.Host)
+	if err != nil {
+		return nil, err
+	}
+	pod, container, err := arthask8s.ResolvePod(ctx, cfg, target.Namespace, target.Kind, target.Name, params.Container)
+	if err != nil {
+		return nil, fmt.Errorf("resolve pod: %w", err)
+	}
+
+	targetKey := sessionTargetKey(target.Namespace, pod, container)
+	if sess, ok := p.sessions.FindByTarget(target.Namespace, pod, container); ok {
+		return CompletedSessionCreateJob(targetKey, sess), nil
+	}
+
+	params.Namespace = target.Namespace
+	params.Kind = "pod"
+	params.Name = pod
+	params.Pod = pod
+	params.Container = container
+	resolvedParams, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("encode resolved params: %w", err)
+	}
+	req.ParamsJSON = resolvedParams
+
+	job, started := p.sessionCreates.Start(targetKey)
+	if !started {
+		return job, nil
+	}
+	if sess, ok := p.sessions.FindByTarget(target.Namespace, pod, container); ok {
+		p.sessionCreates.Succeed(job.ID, sess)
+		return CompletedSessionCreateJob(targetKey, sess), nil
+	}
+
+	go func(jobID string, req sdk.InvokeCtx) {
+		// Do not use the request context here: the HTTP request returns as soon as
+		// this job is registered, which cancels r.Context().
+		ctx, cancel := context.WithTimeout(context.Background(), sessionCreationTimeout)
+		defer cancel()
+		sess, err := p.sessionCreateSync(ctx, req)
+		if err != nil {
+			p.sessionCreates.Fail(jobID, err)
+			return
+		}
+		p.sessionCreates.Succeed(jobID, sess)
+	}(job.ID, req)
+
+	return job, nil
+}
+
+func (p *ArthasPlugin) sessionCreationStatus(req sdk.InvokeCtx) (any, error) {
+	var params SessionCreationStatusParams
+	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if params.JobID == "" {
+		return nil, fmt.Errorf("jobId is required")
+	}
+	job, ok := p.sessionCreates.Get(params.JobID)
+	if !ok {
+		return nil, fmt.Errorf("session create job %q not found", params.JobID)
+	}
+	return job, nil
+}
+
+func sessionTargetKey(namespace, pod, container string) string {
+	return namespace + "/" + pod + "/" + container
+}
+
+func (p *ArthasPlugin) sessionCreateSync(ctx context.Context, req sdk.InvokeCtx) (*arthas.Session, error) {
 	var params SessionCreateParams
 	if len(req.ParamsJSON) > 0 {
 		if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
@@ -112,9 +202,7 @@ func (p *ArthasPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		return nil, fmt.Errorf("resolve pod: %w", err)
 	}
 
-	startCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
-	defer cancel()
-	sess, err := arthas.Start(startCtx, cfg, arthas.StartOptions{
+	sess, err := arthas.Start(ctx, cfg, arthas.StartOptions{
 		Namespace:      target.Namespace,
 		Kind:           target.Kind,
 		Name:           target.Name,

@@ -72,6 +72,17 @@ func (r *SessionRegistry) Get(id string) (*Session, bool) {
 	return s, ok
 }
 
+func (r *SessionRegistry) FindByTarget(namespace, pod, container string) (*Session, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.sessions {
+		if s.Namespace == namespace && s.Pod == pod && s.Container == container {
+			return s, true
+		}
+	}
+	return nil, false
+}
+
 // List returns a snapshot sorted by start time (oldest first).
 func (r *SessionRegistry) List() []*Session {
 	r.mu.RLock()

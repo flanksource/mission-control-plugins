@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	OpSessionsList  = "sessions-list"
-	OpSessionCreate = "session-create"
-	OpSessionDelete = "session-delete"
-	OpPodsList      = "pods-list"
-	OpExec          = "exec"
+	OpSessionsList          = "sessions-list"
+	OpSessionCreate         = "session-create"
+	OpSessionCreationStatus = "session-creation-status"
+	OpSessionDelete         = "session-delete"
+	OpPodsList              = "pods-list"
+	OpExec                  = "exec"
 )
 
 //go:generate go run ./internal/gen-checksum
@@ -43,12 +44,13 @@ func main() {
 }
 
 type ArthasPlugin struct {
-	clients  clientCache
-	sessions *arthas.SessionRegistry
+	clients        clientCache
+	sessions       *arthas.SessionRegistry
+	sessionCreates *SessionCreateJobRegistry
 }
 
 func newPlugin() *ArthasPlugin {
-	return &ArthasPlugin{sessions: arthas.NewSessionRegistry()}
+	return &ArthasPlugin{sessions: arthas.NewSessionRegistry(), sessionCreates: NewSessionCreateJobRegistry()}
 }
 
 func (p *ArthasPlugin) Manifest() *pluginpb.PluginManifest {
@@ -73,6 +75,9 @@ func (p *ArthasPlugin) Operations() []sdk.Operation {
 	handlers := map[string]func(context.Context, sdk.InvokeCtx) (any, error){
 		OpSessionsList:  p.sessionsList,
 		OpSessionCreate: p.sessionCreate,
+		OpSessionCreationStatus: func(_ context.Context, req sdk.InvokeCtx) (any, error) {
+			return p.sessionCreationStatus(req)
+		},
 		OpSessionDelete: p.sessionDelete,
 		OpPodsList:      p.podsList,
 		OpExec:          p.exec,
@@ -98,7 +103,8 @@ func operationDefs() []*pluginpb.OperationDef {
 	}
 	return []*pluginpb.OperationDef{
 		mk(OpSessionsList, "List active Arthas sessions in this plugin process."),
-		mk(OpSessionCreate, "Attach Arthas to the selected Kubernetes workload or pod."),
+		mk(OpSessionCreate, "Start attaching Arthas to the selected Kubernetes workload or pod asynchronously."),
+		mk(OpSessionCreationStatus, "Get the status of an asynchronous Arthas session creation."),
 		mk(OpSessionDelete, "Stop and remove an Arthas session."),
 		mk(OpPodsList, "List ready target pods for the selected Kubernetes workload."),
 		mk(OpExec, "Execute one Arthas command through the session HTTP API."),

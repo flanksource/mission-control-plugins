@@ -21,13 +21,14 @@ The Arthas plugin adds JVM diagnostics to Mission Control for Kubernetes workloa
 
 ## Operations
 
-| Operation        | Purpose                                                         |
-| ---------------- | --------------------------------------------------------------- |
-| `sessions-list`  | List active Arthas sessions.                                    |
-| `session-create` | Attach Arthas to the selected workload or pod.                  |
-| `session-delete` | Stop and remove a plugin session and close port-forwards.       |
-| `pods-list`      | List ready pods that can be targeted for the selected workload. |
-| `exec`           | Execute an Arthas command through the Arthas HTTP API.          |
+| Operation               | Purpose                                                               |
+| ----------------------- | --------------------------------------------------------------------- |
+| `sessions-list`         | List active Arthas sessions.                                          |
+| `session-create`        | Start attaching Arthas to the selected workload or pod asynchronously. |
+| `session-creation-status` | Poll the status of an asynchronous session creation job.            |
+| `session-delete`        | Stop and remove a plugin session and close port-forwards.             |
+| `pods-list`             | List ready pods that can be targeted for the selected workload.       |
+| `exec`                  | Execute an Arthas command through the Arthas HTTP API.                |
 
 ## Kubernetes access
 
