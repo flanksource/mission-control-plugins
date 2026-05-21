@@ -18,6 +18,7 @@ export interface TargetOption {
 
 export interface GolangSession {
   id: string;
+  configItemId?: string;
   namespace: string;
   kind: string;
   name: string;

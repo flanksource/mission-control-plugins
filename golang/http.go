@@ -55,6 +55,10 @@ func (p *GolangPlugin) httpProxyPprof(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
+	if !sessionMatchesConfig(sess, configItemIDFromRequest(r)) {
+		http.Error(w, "session does not belong to the current config item", http.StatusForbidden)
+		return
+	}
 	if !sess.PprofAvailable || sess.PprofLocal == 0 {
 		http.Error(w, "pprof is not available for this session", http.StatusBadRequest)
 		return
@@ -81,6 +85,10 @@ func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
 	sess, ok := p.sessions.Get(id)
 	if !ok {
 		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	if !sessionMatchesConfig(sess, configItemIDFromRequest(r)) {
+		http.Error(w, "session does not belong to the current config item", http.StatusForbidden)
 		return
 	}
 
@@ -137,6 +145,13 @@ func (p *GolangPlugin) proxyProfileViewer(w http.ResponseWriter, r *http.Request
 	r.URL.Path = "/" + strings.TrimLeft(subPath, "/")
 	r.URL.RawPath = ""
 	proxy.ServeHTTP(w, r)
+}
+
+func configItemIDFromRequest(r *http.Request) string {
+	if id := sdk.ConfigItemIDFromContext(r.Context()); id != "" {
+		return id
+	}
+	return r.URL.Query().Get("config_id")
 }
 
 func operationSubpath(r *http.Request, operation string) string {

@@ -25,8 +25,8 @@ import {
   type TargetOption,
 } from "./api";
 
-const SESSIONS_KEY = ["golang", "sessions"] as const;
-const PODS_KEY = ["golang", "pods"] as const;
+const sessionsKey = (configID: string) => ["golang", configID, "sessions"] as const;
+const podsKey = (configID: string) => ["golang", configID, "pods"] as const;
 const PROFILE_KINDS: ProfileKind[] = ["cpu", "trace", "heap"];
 const PROFILE_SOURCES: ProfileSource[] = ["auto", "pprof", "gops"];
 const HEAP_PALETTE = ["bg-emerald-500", "bg-sky-500", "bg-amber-500", "bg-violet-500"];
@@ -43,32 +43,39 @@ export function App() {
   const qc = useQueryClient();
 
   const podsQ = useQuery({
-    queryKey: PODS_KEY,
+    queryKey: podsKey(configID),
     queryFn: () => callOp<RunningPod[]>("pods-list"),
     enabled: !!configID,
     refetchInterval: 15_000,
   });
 
   const sessionsQ = useQuery({
-    queryKey: SESSIONS_KEY,
+    queryKey: sessionsKey(configID),
     queryFn: () => callOp<GolangSession[]>("sessions-list"),
+    enabled: !!configID,
     refetchInterval: 5_000,
   });
 
   const targets = useMemo(() => flattenTargets(podsQ.data ?? []), [podsQ.data]);
   const sessions = sessionsQ.data ?? [];
+  const selectedTargetSession = useMemo(
+    () => (selectedTarget ? sessions.find((s) => sessionMatchesTarget(s, selectedTarget)) ?? null : null),
+    [sessions, selectedTarget],
+  );
   const selectedSession = useMemo(
-    () => sessions.find((s) => s.id === selectedSessionID) ?? sessions[0] ?? null,
-    [sessions, selectedSessionID],
+    () => (selectedTarget ? selectedTargetSession : sessions.find((s) => s.id === selectedSessionID) ?? null),
+    [sessions, selectedSessionID, selectedTarget, selectedTargetSession],
   );
 
   useEffect(() => {
-    if (!selectedTarget && targets.length > 0) setSelectedTarget(targets[0]);
-  }, [selectedTarget, targets]);
+    if (selectedTarget || targets.length === 0) return;
+    const activeTarget = targets.find((target) => sessions.some((session) => sessionMatchesTarget(session, target)));
+    setSelectedTarget(activeTarget ?? targets[0]);
+  }, [selectedTarget, targets, sessions]);
 
   useEffect(() => {
-    if (!selectedSessionID && sessions.length > 0) setSelectedSessionID(sessions[0].id);
-  }, [selectedSessionID, sessions]);
+    setSelectedSessionID(selectedTargetSession?.id ?? null);
+  }, [selectedTargetSession]);
 
   const startSession = useMutation({
     mutationFn: (target: TargetOption) =>
@@ -79,7 +86,11 @@ export function App() {
       }),
     onSuccess: (session) => {
       setSelectedSessionID(session.id);
-      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+      qc.setQueryData<GolangSession[]>(sessionsKey(configID), (old = []) => [
+        session,
+        ...old.filter((item) => item.id !== session.id),
+      ]);
+      qc.invalidateQueries({ queryKey: sessionsKey(configID) });
     },
   });
 
@@ -87,7 +98,8 @@ export function App() {
     mutationFn: (id: string) => callOp("session-delete", { id }),
     onSuccess: (_, id) => {
       if (selectedSessionID === id) setSelectedSessionID(null);
-      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+      qc.setQueryData<GolangSession[]>(sessionsKey(configID), (old = []) => old.filter((item) => item.id !== id));
+      qc.invalidateQueries({ queryKey: sessionsKey(configID) });
     },
   });
 
@@ -113,7 +125,7 @@ export function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="Refresh" onClick={() => refreshAll(qc)}>
+          <Button variant="ghost" size="icon" title="Refresh" onClick={() => refreshAll(qc, configID)}>
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
@@ -143,8 +155,10 @@ export function App() {
               <div className="flex flex-col gap-1">
                 {targets.map((target) => {
                   const selected =
-                    selectedTarget?.pod === target.pod && selectedTarget?.container === target.container;
-                  const session = sessions.find((s) => s.pod === target.pod && s.container === target.container);
+                    selectedTarget?.namespace === target.namespace &&
+                    selectedTarget?.pod === target.pod &&
+                    selectedTarget?.container === target.container;
+                  const session = sessions.find((s) => sessionMatchesTarget(s, target));
                   return (
                     <button
                       key={`${target.namespace}/${target.pod}/${target.container}`}
@@ -153,7 +167,7 @@ export function App() {
                       }`}
                       onClick={() => {
                         setSelectedTarget(target);
-                        if (session) setSelectedSessionID(session.id);
+                        setSelectedSessionID(session?.id ?? null);
                       }}
                     >
                       <span className="min-w-0 flex-1">
@@ -876,6 +890,10 @@ function RunBadge({ run }: { run: ProfileRun }) {
   return <Badge tone={tone} variant="soft" size="sm">{run.state}</Badge>;
 }
 
+function sessionMatchesTarget(session: GolangSession, target: TargetOption): boolean {
+  return session.namespace === target.namespace && session.pod === target.pod && session.container === target.container;
+}
+
 function flattenTargets(pods: RunningPod[]): TargetOption[] {
   const out: TargetOption[] = [];
   for (const pod of pods) {
@@ -1024,7 +1042,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function refreshAll(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: PODS_KEY });
-  qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+function refreshAll(qc: QueryClient, configID: string) {
+  qc.invalidateQueries({ queryKey: podsKey(configID) });
+  qc.invalidateQueries({ queryKey: sessionsKey(configID) });
 }

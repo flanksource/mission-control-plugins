@@ -97,8 +97,8 @@ func (p *GolangPlugin) podsList(ctx context.Context, req sdk.InvokeCtx) (any, er
 	return listRunningPodsForTarget(ctx, cli, target)
 }
 
-func (p *GolangPlugin) sessionsList(_ context.Context, _ sdk.InvokeCtx) (any, error) {
-	return p.sessions.List(), nil
+func (p *GolangPlugin) sessionsList(_ context.Context, req sdk.InvokeCtx) (any, error) {
+	return p.sessions.List(req.ConfigItemID), nil
 }
 
 func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -211,7 +211,7 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		_ = fwd.Close()
 		return nil, fmt.Errorf("port-forward not ready: %w", err)
 	}
-	sess := NewSession(pod.Namespace, target.Kind, target.Name, pod.Name, container, func() error { return fwd.Close() })
+	sess := NewSession(req.ConfigItemID, pod.Namespace, target.Kind, target.Name, pod.Name, container, func() error { return fwd.Close() })
 	sess.PID = pid
 	if match, ok := firstWorkingGops(ctx, gopsCandidates); ok {
 		sess.GopsRemote = match.Remote
@@ -276,6 +276,9 @@ func (p *GolangPlugin) sessionDelete(_ context.Context, req sdk.InvokeCtx) (any,
 	if params.ID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
+	if _, err := p.getSessionForConfig(params.ID, req.ConfigItemID); err != nil {
+		return nil, err
+	}
 	removed, err := p.sessions.Remove(params.ID)
 	if !removed {
 		return nil, fmt.Errorf("session %q not found", params.ID)
@@ -288,7 +291,7 @@ func (p *GolangPlugin) sessionDelete(_ context.Context, req sdk.InvokeCtx) (any,
 }
 
 func (p *GolangPlugin) runtimeSnapshot(ctx context.Context, req sdk.InvokeCtx) (any, error) {
-	sess, err := p.sessionFromRequest(req.ParamsJSON)
+	sess, err := p.sessionFromRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +310,7 @@ func (p *GolangPlugin) runtimeSnapshot(ctx context.Context, req sdk.InvokeCtx) (
 }
 
 func (p *GolangPlugin) goroutines(ctx context.Context, req sdk.InvokeCtx) (any, error) {
-	sess, err := p.sessionFromRequest(req.ParamsJSON)
+	sess, err := p.sessionFromRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -333,9 +336,9 @@ func (p *GolangPlugin) profileCollect(ctx context.Context, req sdk.InvokeCtx) (a
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	sess, ok := p.sessions.Get(params.SessionID)
-	if !ok {
-		return nil, fmt.Errorf("session %q not found", params.SessionID)
+	sess, err := p.getSessionForConfig(params.SessionID, req.ConfigItemID)
+	if err != nil {
+		return nil, err
 	}
 	kind := normalizeProfileKind(params.Kind)
 	if kind == "" {
@@ -369,9 +372,9 @@ func (p *GolangPlugin) profileStart(_ context.Context, req sdk.InvokeCtx) (any, 
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	sess, ok := p.sessions.Get(params.SessionID)
-	if !ok {
-		return nil, fmt.Errorf("session %q not found", params.SessionID)
+	sess, err := p.getSessionForConfig(params.SessionID, req.ConfigItemID)
+	if err != nil {
+		return nil, err
 	}
 	kind := normalizeProfileKind(params.Kind)
 	if kind == "" {
@@ -412,6 +415,9 @@ func (p *GolangPlugin) profileStatus(_ context.Context, req sdk.InvokeCtx) (any,
 	if params.SessionID != "" && run.SessionID != params.SessionID {
 		return nil, fmt.Errorf("profile run %q does not belong to session %q", params.RunID, params.SessionID)
 	}
+	if _, err := p.getSessionForConfig(run.SessionID, req.ConfigItemID); err != nil {
+		return nil, err
+	}
 	return run.Snapshot(), nil
 }
 
@@ -430,6 +436,9 @@ func (p *GolangPlugin) profileStop(_ context.Context, req sdk.InvokeCtx) (any, e
 	if params.SessionID != "" && run.SessionID != params.SessionID {
 		return nil, fmt.Errorf("profile run %q does not belong to session %q", params.RunID, params.SessionID)
 	}
+	if _, err := p.getSessionForConfig(run.SessionID, req.ConfigItemID); err != nil {
+		return nil, err
+	}
 	run.Stop()
 	return run.Snapshot(), nil
 }
@@ -442,25 +451,36 @@ func (p *GolangPlugin) profileRunsList(_ context.Context, req sdk.InvokeCtx) (an
 	if params.SessionID == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
-	if _, ok := p.sessions.Get(params.SessionID); !ok {
-		return nil, fmt.Errorf("session %q not found", params.SessionID)
+	if _, err := p.getSessionForConfig(params.SessionID, req.ConfigItemID); err != nil {
+		return nil, err
 	}
 	return p.profiles.List(params.SessionID), nil
 }
 
-func (p *GolangPlugin) sessionFromRequest(raw []byte) (*Session, error) {
+func (p *GolangPlugin) sessionFromRequest(req sdk.InvokeCtx) (*Session, error) {
 	var params SessionIDParams
-	if err := json.Unmarshal(raw, &params); err != nil {
+	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
 	if params.SessionID == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
-	sess, ok := p.sessions.Get(params.SessionID)
+	return p.getSessionForConfig(params.SessionID, req.ConfigItemID)
+}
+
+func (p *GolangPlugin) getSessionForConfig(sessionID, configItemID string) (*Session, error) {
+	sess, ok := p.sessions.Get(sessionID)
 	if !ok {
-		return nil, fmt.Errorf("session %q not found", params.SessionID)
+		return nil, fmt.Errorf("session %q not found", sessionID)
+	}
+	if !sessionMatchesConfig(sess, configItemID) {
+		return nil, fmt.Errorf("session %q does not belong to the current config item", sessionID)
 	}
 	return sess, nil
+}
+
+func sessionMatchesConfig(sess *Session, configItemID string) bool {
+	return configItemID == "" || sess.ConfigItemID == configItemID
 }
 
 func selectPodContainer(pods []RunningPod, podName, container string) (RunningPod, string, error) {
