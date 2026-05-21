@@ -33,11 +33,22 @@ interface RunningPod {
   ownerName?: string;
 }
 
+interface SessionCreateJob {
+  jobId: string;
+  status: "pending" | "running" | "failed";
+  sessionId?: string;
+  session?: ArthasSession;
+  error?: string;
+  startedAt: string;
+  finishedAt?: string;
+}
+
 const SESSIONS_KEY = ["arthas", "sessions"] as const;
 
 export function ArthasPage() {
   const configID = configIDFromURL();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [createJobId, setCreateJobId] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const sessionsQ = useQuery({
@@ -54,13 +65,39 @@ export function ArthasPage() {
   });
 
   const create = useMutation({
-    mutationFn: (body: Record<string, unknown>) => callOp<ArthasSession>("session-create", body),
-    onSuccess: (sess) => {
-      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
-      setSelectedId(sess.id);
-      toastManager.add({ title: `Arthas session started on ${sess.pod}`, type: "success" });
+    mutationFn: (body: Record<string, unknown>) => callOp<SessionCreateJob>("session-create", body),
+    onSuccess: (job) => {
+      if (job.status === "running" && job.session) {
+        qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+        setSelectedId(job.session.id);
+        toastManager.add({ title: `Arthas session started on ${job.session.pod}`, type: "success" });
+        return;
+      }
+      setCreateJobId(job.jobId);
+      toastManager.add({ title: "Starting Arthas session…", type: "info" });
     },
   });
+
+  const createStatusQ = useQuery({
+    queryKey: ["arthas", "session-creation-status", createJobId],
+    queryFn: () => callOp<SessionCreateJob>("session-creation-status", { jobId: createJobId }),
+    enabled: !!createJobId,
+    refetchInterval: createJobId ? 2_000 : false,
+  });
+
+  useEffect(() => {
+    const job = createStatusQ.data;
+    if (!job || !createJobId) return;
+    if (job.status === "running" && job.session) {
+      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+      setSelectedId(job.session.id);
+      setCreateJobId(null);
+      toastManager.add({ title: `Arthas session started on ${job.session.pod}`, type: "success" });
+    } else if (job.status === "failed") {
+      setCreateJobId(null);
+      toastManager.add({ title: job.error ? `Failed to start Arthas session: ${job.error}` : "Failed to start Arthas session", type: "error" });
+    }
+  }, [createJobId, createStatusQ.data, qc]);
 
   const del = useMutation({
     mutationFn: (id: string) => callOp("session-delete", { id }),
@@ -97,7 +134,7 @@ export function ArthasPage() {
             pods={podsQ.data ?? []}
             podsLoading={podsQ.isLoading}
             podsError={podsQ.error}
-            creating={create.isPending}
+            creating={create.isPending || !!createJobId}
             deletingId={del.isPending ? String(del.variables ?? "") || null : null}
             onSelectSession={setSelectedId}
             onCreateSession={(body) => create.mutate(body)}
@@ -111,7 +148,7 @@ export function ArthasPage() {
             pods={podsQ.data ?? []}
             podsLoading={podsQ.isLoading}
             podsError={podsQ.error}
-            creating={create.isPending}
+            creating={create.isPending || !!createJobId}
             deletingId={del.isPending ? String(del.variables ?? "") || null : null}
             onSelectSession={setSelectedId}
             onCreateSession={(body) => create.mutate(body)}
