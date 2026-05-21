@@ -80,8 +80,18 @@ type ExecResponse struct {
 	Duration   time.Duration `json:"-"`
 }
 
-func (p *ArthasPlugin) sessionsList(_ context.Context, _ sdk.InvokeCtx) (any, error) {
-	return p.sessions.List(), nil
+func (p *ArthasPlugin) sessionsList(ctx context.Context, req sdk.InvokeCtx) (any, error) {
+	pods, err := p.currentPods(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*arthas.Session, 0)
+	for _, sess := range p.sessions.List() {
+		if sessionInPods(sess.Namespace, sess.Pod, sess.Container, pods) {
+			out = append(out, sess)
+		}
+	}
+	return out, nil
 }
 
 func (p *ArthasPlugin) podsList(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -251,13 +261,16 @@ func (p *ArthasPlugin) createTarget(ctx context.Context, req sdk.InvokeCtx, para
 	return base, nil
 }
 
-func (p *ArthasPlugin) sessionDelete(_ context.Context, req sdk.InvokeCtx) (any, error) {
+func (p *ArthasPlugin) sessionDelete(ctx context.Context, req sdk.InvokeCtx) (any, error) {
 	var params SessionDeleteParams
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
 	if params.ID == "" {
 		return nil, fmt.Errorf("id is required")
+	}
+	if _, err := p.sessionForConfig(ctx, req, params.ID); err != nil {
+		return nil, err
 	}
 	removed, err := p.sessions.Remove(params.ID)
 	if !removed {
@@ -273,6 +286,9 @@ func (p *ArthasPlugin) exec(ctx context.Context, req sdk.InvokeCtx) (any, error)
 	}
 	if params.SessionID == "" || params.Command == "" {
 		return nil, fmt.Errorf("sessionId and command are required")
+	}
+	if _, err := p.sessionForConfig(ctx, req, params.SessionID); err != nil {
+		return nil, err
 	}
 	return p.execCommand(ctx, params.SessionID, params.Command)
 }
@@ -322,6 +338,50 @@ func (p *ArthasPlugin) execCommand(ctx context.Context, sessionID, command strin
 		return out, fmt.Errorf("arthas command failed (%s): %s", state, out.Message)
 	}
 	return out, nil
+}
+
+func (p *ArthasPlugin) sessionForConfig(ctx context.Context, req sdk.InvokeCtx, id string) (*arthas.Session, error) {
+	sess, ok := p.sessions.Get(id)
+	if !ok {
+		return nil, fmt.Errorf("session %q not found", id)
+	}
+	pods, err := p.currentPods(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if !sessionInPods(sess.Namespace, sess.Pod, sess.Container, pods) {
+		return nil, fmt.Errorf("session %q does not belong to the current config item", id)
+	}
+	return sess, nil
+}
+
+func (p *ArthasPlugin) currentPods(ctx context.Context, req sdk.InvokeCtx) ([]RunningPod, error) {
+	target, err := targetFromConfig(ctx, req.Host, req.ConfigItemID)
+	if err != nil {
+		return nil, err
+	}
+	cli, err := p.clients.Client(ctx, req.Host)
+	if err != nil {
+		return nil, err
+	}
+	return listRunningPodsForTarget(ctx, cli, target)
+}
+
+func sessionInPods(namespace, pod, container string, pods []RunningPod) bool {
+	for _, p := range pods {
+		if p.Namespace != namespace || p.Name != pod {
+			continue
+		}
+		if container == "" {
+			return true
+		}
+		for _, c := range p.Containers {
+			if c == container {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func targetFromConfig(ctx context.Context, host sdk.HostClient, configID string) (TargetRef, error) {

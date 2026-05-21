@@ -43,7 +43,7 @@ interface SessionCreateJob {
   finishedAt?: string;
 }
 
-const SESSIONS_KEY = ["arthas", "sessions"] as const;
+const sessionsKey = (configID: string) => ["arthas", configID, "sessions"] as const;
 
 export function ArthasPage() {
   const configID = configIDFromURL();
@@ -52,8 +52,9 @@ export function ArthasPage() {
   const qc = useQueryClient();
 
   const sessionsQ = useQuery({
-    queryKey: SESSIONS_KEY,
+    queryKey: sessionsKey(configID),
     queryFn: () => callOp<ArthasSession[]>("sessions-list"),
+    enabled: !!configID,
     refetchInterval: 5_000,
   });
 
@@ -68,7 +69,7 @@ export function ArthasPage() {
     mutationFn: (body: Record<string, unknown>) => callOp<SessionCreateJob>("session-create", body),
     onSuccess: (job) => {
       if (job.status === "running" && job.session) {
-        qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+        qc.invalidateQueries({ queryKey: sessionsKey(configID) });
         setSelectedId(job.session.id);
         toastManager.add({ title: `Arthas session started on ${job.session.pod}`, type: "success" });
         return;
@@ -89,7 +90,7 @@ export function ArthasPage() {
     const job = createStatusQ.data;
     if (!job || !createJobId) return;
     if (job.status === "running" && job.session) {
-      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+      qc.invalidateQueries({ queryKey: sessionsKey(configID) });
       setSelectedId(job.session.id);
       setCreateJobId(null);
       toastManager.add({ title: `Arthas session started on ${job.session.pod}`, type: "success" });
@@ -97,12 +98,12 @@ export function ArthasPage() {
       setCreateJobId(null);
       toastManager.add({ title: job.error ? `Failed to start Arthas session: ${job.error}` : "Failed to start Arthas session", type: "error" });
     }
-  }, [createJobId, createStatusQ.data, qc]);
+  }, [configID, createJobId, createStatusQ.data, qc]);
 
   const del = useMutation({
     mutationFn: (id: string) => callOp("session-delete", { id }),
     onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: SESSIONS_KEY });
+      qc.invalidateQueries({ queryKey: sessionsKey(configID) });
       if (selectedId === id) setSelectedId(null);
     },
   });
@@ -232,7 +233,7 @@ function SessionMenu({
             <div className="max-h-96 overflow-auto">
               {targets.map((target) => (
                 <div
-                  key={`${target.pod.name}/${target.container}`}
+                  key={`${target.pod.namespace}/${target.pod.name}/${target.container}`}
                   className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded px-2 py-2 hover:bg-muted ${
                     selectedId === target.session?.id ? "bg-muted" : ""
                   }`}
@@ -303,23 +304,23 @@ type PodSessionTarget = {
 };
 
 function sessionTargets(pods: RunningPod[], sessions: ArthasSession[]): PodSessionTarget[] {
-  const sessionsByPod = new Map<string, ArthasSession>();
+  const sessionsByTarget = new Map<string, ArthasSession>();
   for (const session of sessions) {
-    if (!sessionsByPod.has(session.pod)) sessionsByPod.set(session.pod, session);
+    sessionsByTarget.set(targetKey(session.namespace, session.pod, session.container), session);
   }
 
   return pods.flatMap((pod) => {
-    const session = sessionsByPod.get(pod.name);
-    if (session) {
-      return [{ pod, container: session.container, session }];
-    }
-
     const containers = pod.containers.length > 0 ? pod.containers : [""];
     return containers.map((container) => ({
       pod,
       container,
+      session: sessionsByTarget.get(targetKey(pod.namespace, pod.name, container)),
     }));
   });
+}
+
+function targetKey(namespace: string, pod: string, container: string): string {
+  return `${namespace}/${pod}/${container}`;
 }
 
 function formatSessionTime(startedAt: string): string {

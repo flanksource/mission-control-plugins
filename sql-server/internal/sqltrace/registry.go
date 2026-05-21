@@ -222,11 +222,13 @@ func (r *Registry) runDrain(ctx context.Context, trace *ActiveTrace, interval ti
 }
 
 func (r *Registry) Stop(id string) (*ActiveTrace, error) {
-	r.mu.Lock()
-	trace, ok := r.traces[id]
-	r.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("trace %q not found", id)
+	return r.StopForConfig(id, "")
+}
+
+func (r *Registry) StopForConfig(id, configItemID string) (*ActiveTrace, error) {
+	trace, err := r.getForConfig(id, configItemID)
+	if err != nil {
+		return nil, err
 	}
 	if err := trace.stop(context.Background()); err != nil {
 		return trace, err
@@ -241,10 +243,21 @@ func (r *Registry) Get(id string) (*ActiveTrace, bool) {
 	return t, ok
 }
 
+func (r *Registry) GetForConfig(id, configItemID string) (*ActiveTrace, error) {
+	return r.getForConfig(id, configItemID)
+}
+
 func (r *Registry) List() []*ActiveTrace {
+	return r.ListForConfig("")
+}
+
+func (r *Registry) ListForConfig(configItemID string) []*ActiveTrace {
 	r.mu.Lock()
 	out := make([]*ActiveTrace, 0, len(r.traces))
 	for _, t := range r.traces {
+		if configItemID != "" && t.ConfigItemID != configItemID {
+			continue
+		}
 		out = append(out, t)
 	}
 	r.mu.Unlock()
@@ -253,16 +266,36 @@ func (r *Registry) List() []*ActiveTrace {
 }
 
 func (r *Registry) Delete(id string) (bool, error) {
+	return r.DeleteForConfig(id, "")
+}
+
+func (r *Registry) DeleteForConfig(id, configItemID string) (bool, error) {
 	r.mu.Lock()
 	trace, ok := r.traces[id]
-	if ok {
-		delete(r.traces, id)
-	}
-	r.mu.Unlock()
 	if !ok {
+		r.mu.Unlock()
 		return false, nil
 	}
+	if configItemID != "" && trace.ConfigItemID != configItemID {
+		r.mu.Unlock()
+		return false, fmt.Errorf("trace %q does not belong to the current config item", id)
+	}
+	delete(r.traces, id)
+	r.mu.Unlock()
 	return true, trace.stop(context.Background())
+}
+
+func (r *Registry) getForConfig(id, configItemID string) (*ActiveTrace, error) {
+	r.mu.Lock()
+	trace, ok := r.traces[id]
+	r.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("trace %q not found", id)
+	}
+	if configItemID != "" && trace.ConfigItemID != configItemID {
+		return nil, fmt.Errorf("trace %q does not belong to the current config item", id)
+	}
+	return trace, nil
 }
 
 func (r *Registry) StopAll() {

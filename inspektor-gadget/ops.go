@@ -36,11 +36,22 @@ func (p *InspektorGadgetPlugin) tracesList(_ context.Context, _ sdk.InvokeCtx) (
 	return supportedGadgets(p.settings.GadgetTag), nil
 }
 
-func (p *InspektorGadgetPlugin) traceList(_ context.Context, _ sdk.InvokeCtx) (any, error) {
-	return p.sessions.List(), nil
+func (p *InspektorGadgetPlugin) traceList(ctx context.Context, req sdk.InvokeCtx) (any, error) {
+	pods, err := p.currentPods(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	sessions := p.sessions.List()
+	out := make([]*TraceSession, 0, len(sessions))
+	for i := range sessions {
+		if traceTargetInPods(sessions[i].Target, pods) {
+			out = append(out, &sessions[i])
+		}
+	}
+	return out, nil
 }
 
-func (p *InspektorGadgetPlugin) traceEvents(_ context.Context, req sdk.InvokeCtx) (any, error) {
+func (p *InspektorGadgetPlugin) traceEvents(ctx context.Context, req sdk.InvokeCtx) (any, error) {
 	var params TraceEventsParams
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
@@ -48,14 +59,14 @@ func (p *InspektorGadgetPlugin) traceEvents(_ context.Context, req sdk.InvokeCtx
 	if params.ID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
-	sess, ok := p.sessions.Get(params.ID)
-	if !ok {
-		return nil, fmt.Errorf("session %q not found", params.ID)
+	sess, err := p.sessionForConfig(ctx, req, params.ID)
+	if err != nil {
+		return nil, err
 	}
 	return sess.Events(), nil
 }
 
-func (p *InspektorGadgetPlugin) traceStop(_ context.Context, req sdk.InvokeCtx) (any, error) {
+func (p *InspektorGadgetPlugin) traceStop(ctx context.Context, req sdk.InvokeCtx) (any, error) {
 	var params TraceStopParams
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
@@ -63,9 +74,9 @@ func (p *InspektorGadgetPlugin) traceStop(_ context.Context, req sdk.InvokeCtx) 
 	if params.ID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
-	sess, ok := p.sessions.Get(params.ID)
-	if !ok {
-		return nil, fmt.Errorf("session %q not found", params.ID)
+	sess, err := p.sessionForConfig(ctx, req, params.ID)
+	if err != nil {
+		return nil, err
 	}
 	sess.Stop()
 	return sess.Snapshot(), nil
@@ -159,6 +170,57 @@ func (p *InspektorGadgetPlugin) traceStart(ctx context.Context, req sdk.InvokeCt
 	}()
 
 	return session.Snapshot(), nil
+}
+
+func (p *InspektorGadgetPlugin) sessionForConfig(ctx context.Context, req sdk.InvokeCtx, id string) (*TraceSession, error) {
+	sess, ok := p.sessions.Get(id)
+	if !ok {
+		return nil, fmt.Errorf("session %q not found", id)
+	}
+	if req.ConfigItemID == "" {
+		return sess, nil
+	}
+	pods, err := p.currentPods(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if !traceTargetInPods(sess.Target, pods) {
+		return nil, fmt.Errorf("session %q does not belong to the current config item", id)
+	}
+	return sess, nil
+}
+
+func (p *InspektorGadgetPlugin) currentPods(ctx context.Context, req sdk.InvokeCtx) ([]RunningPod, error) {
+	target, err := targetFromConfig(ctx, req.Host, req.ConfigItemID)
+	if err != nil {
+		return nil, err
+	}
+	cli, err := p.clients.Client(ctx, req.Host)
+	if err != nil {
+		return nil, err
+	}
+	pods, err := listRunningPodsForTarget(ctx, cli, target)
+	if err != nil {
+		return nil, err
+	}
+	return pods, nil
+}
+
+func traceTargetInPods(target TraceTarget, pods []RunningPod) bool {
+	for _, pod := range pods {
+		if pod.Namespace != target.Namespace || pod.Name != target.Pod {
+			continue
+		}
+		if target.Container == "" {
+			return true
+		}
+		for _, container := range pod.Containers {
+			if container == target.Container {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func normalizeTraceOptions(params TraceStartParams) (map[string]any, error) {
