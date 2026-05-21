@@ -30,7 +30,6 @@ const (
 	ArthasJarPath     = "/tmp/arthas-boot.jar"
 	ArthasBootURL     = "https://arthas.aliyun.com/arthas-boot.jar"
 	DefaultRemoteHTTP = 8563
-	DefaultRemoteMCP  = 8777
 )
 
 // portProbePrelude is a POSIX-sh helper injected at the top of every exec
@@ -68,9 +67,7 @@ type StartOptions struct {
 	Pod        string
 	Container  string
 	LocalHTTP  int // 0 = auto-allocate
-	LocalMCP   int // 0 = auto-allocate
 	RemoteHTTP int // defaults to 8563
-	RemoteMCP  int // defaults to 8777
 	// SkipJDKInstall bypasses the Java 8 JRE side-load; the attach will fail
 	// loud if tools.jar is missing. Intended for operators who've provisioned
 	// the pod out-of-band.
@@ -78,18 +75,14 @@ type StartOptions struct {
 }
 
 // Start runs the full bootstrap: ensure Arthas jar is present, attach it to
-// PID 1 with HTTP enabled, start the MCP server plugin, and open port-forwards
-// to the caller's workstation. The returned Session carries a Stop closure
-// that tears down the port-forwards. Note: the in-pod Arthas process is left
-// running; a subsequent Start on the same pod will reuse it.
+// PID 1 with HTTP enabled, and open a port-forward to the Arthas HTTP API.
+// The returned Session carries a Stop closure that tears down the port-forward.
+// Note: the in-pod Arthas process is left running; a subsequent Start on the
+// same pod will reuse it.
 func Start(ctx context.Context, restCfg *rest.Config, opts StartOptions) (*Session, error) {
 	if opts.RemoteHTTP == 0 {
 		opts.RemoteHTTP = DefaultRemoteHTTP
 	}
-	if opts.RemoteMCP == 0 {
-		opts.RemoteMCP = DefaultRemoteMCP
-	}
-
 	javaInfo, err := detectJava(ctx, restCfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("detect java: %w", err)
@@ -111,30 +104,11 @@ func Start(ctx context.Context, restCfg *rest.Config, opts StartOptions) (*Sessi
 	if err := attachArthas(ctx, restCfg, opts, javaHome, remoteTelnet); err != nil {
 		return nil, fmt.Errorf("attach arthas: %w", err)
 	}
-	// MCP plugin is distributed separately from arthas-boot and isn't present
-	// in upstream arthas 4.1.x. Attempt to start it — if the command doesn't
-	// exist, fall through: the arthas HTTP /api endpoint on :8563 is itself a
-	// fully-featured REST surface the UI exposes directly, so MCP is a nice-
-	// to-have, not a hard requirement.
-	mcpEnabled := true
-	if err := enableMCP(ctx, restCfg, opts); err != nil {
-		mcpEnabled = false
-	}
-	_ = mcpEnabled // surfaced to Session below
-
 	localHTTP, err := pickLocalPort(opts.LocalHTTP)
 	if err != nil {
 		return nil, err
 	}
 	mappings := []k8s.PortMapping{{LocalPort: localHTTP, RemotePort: opts.RemoteHTTP}}
-	localMCP := 0
-	if mcpEnabled {
-		localMCP, err = pickLocalPort(opts.LocalMCP)
-		if err != nil {
-			return nil, err
-		}
-		mappings = append(mappings, k8s.PortMapping{LocalPort: localMCP, RemotePort: opts.RemoteMCP})
-	}
 
 	fwd, ready, err := k8s.StartPortForward(restCfg, opts.Namespace, opts.Pod, mappings, io.Discard, io.Discard)
 	if err != nil {
@@ -145,13 +119,12 @@ func Start(ctx context.Context, restCfg *rest.Config, opts StartOptions) (*Sessi
 		return nil, fmt.Errorf("port-forward not ready: %w", err)
 	}
 
-	sess := NewSession(opts.Namespace, opts.Kind, opts.Name, opts.Pod, opts.Container, localHTTP, localMCP, func() error {
+	sess := NewSession(opts.Namespace, opts.Kind, opts.Name, opts.Pod, opts.Container, localHTTP, func() error {
 		return fwd.Close()
 	})
 	sess.JavaVersion = javaInfo.Major
 	sess.JDKProvisioned = javaHome != ""
 	sess.SideloadedJavaHome = javaHome
-	sess.MCPEnabled = mcpEnabled
 	return sess, nil
 }
 
@@ -193,7 +166,7 @@ if probe_port 127.0.0.1 %[1]d; then exit 0; fi
 # answers it bails with "already listen port ..., skip attach". Some base
 # images already bind 3658 for other reasons, so we pick a fresh high port
 # per session (the telnet listener stays loopback-only anyway — we only
-# port-forward HTTP + MCP to the caller).
+# port-forward HTTP to the plugin process).
 if probe_port 127.0.0.1 %[4]d; then
   echo "chosen telnet port %[4]d is already in use in the pod; retry to pick a different port" >&2
   exit 1
@@ -242,29 +215,6 @@ done
 echo "arthas HTTP port %[1]d did not come up; see /tmp/arthas.log in the pod" >&2
 head -n 40 /tmp/arthas.log >&2 || true
 exit 1`, opts.RemoteHTTP, ArthasJarPath, javaHomeExport, remoteTelnet)
-	return execSh(ctx, restCfg, opts, script)
-}
-
-func enableMCP(ctx context.Context, restCfg *rest.Config, opts StartOptions) error {
-	// Use Arthas HTTP API to start the mcp-server plugin.
-	// https://arthas.aliyun.com/en/doc/http-api.html
-	script := fmt.Sprintf(`set -e
-`+portProbePrelude+`
-if probe_port 127.0.0.1 %[2]d; then exit 0; fi
-RESP=$(curl -sS -XPOST "http://127.0.0.1:%[1]d/api" \
-  -H 'Content-Type: application/json' \
-  -d '{"action":"exec","command":"mcp-server start --port %[2]d"}')
-echo "$RESP"
-echo "$RESP" | grep -q '"state":"SUCCEEDED"' || {
-  echo "mcp-server plugin did not start (needs Arthas with MCP support)" >&2
-  exit 1
-}
-for i in $(seq 1 20); do
-  if probe_port 127.0.0.1 %[2]d; then exit 0; fi
-  sleep 0.5
-done
-echo "mcp port %[2]d did not come up" >&2
-exit 1`, opts.RemoteHTTP, opts.RemoteMCP)
 	return execSh(ctx, restCfg, opts, script)
 }
 

@@ -20,7 +20,6 @@ type Session struct {
 	Pod           string    `json:"pod"`
 	Container     string    `json:"container"`
 	HTTPLocalPort int       `json:"httpLocalPort"`
-	MCPLocalPort  int       `json:"mcpLocalPort"`
 	StartedAt     time.Time `json:"startedAt"`
 
 	// JavaVersion is the major version detected via `java -version` in the
@@ -32,10 +31,6 @@ type Session struct {
 	// SideloadedJavaHome is the path inside the pod where the downloaded JDK
 	// lives, when JDKProvisioned is true.
 	SideloadedJavaHome string `json:"sideloadedJavaHome,omitempty"`
-	// MCPEnabled is true when the arthas mcp-server plugin was successfully
-	// started. Upstream arthas 4.1.x doesn't bundle MCP, so this is often
-	// false; clients should fall back to arthas' native HTTP /api endpoint.
-	MCPEnabled bool `json:"mcpEnabled"`
 
 	stop     func() error
 	stopOnce sync.Once
@@ -118,7 +113,7 @@ func (r *SessionRegistry) StopAll() {
 }
 
 // NewSession builds a Session with a random ID and installs the Stop closure.
-func NewSession(namespace, kind, name, pod, container string, httpPort, mcpPort int, stop func() error) *Session {
+func NewSession(namespace, kind, name, pod, container string, httpPort int, stop func() error) *Session {
 	return &Session{
 		ID:            newID(),
 		Namespace:     namespace,
@@ -127,7 +122,6 @@ func NewSession(namespace, kind, name, pod, container string, httpPort, mcpPort 
 		Pod:           pod,
 		Container:     container,
 		HTTPLocalPort: httpPort,
-		MCPLocalPort:  mcpPort,
 		StartedAt:     time.Now().UTC(),
 		stop:          stop,
 	}
