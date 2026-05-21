@@ -1,0 +1,24 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: opensearch
+spec:
+  source: opensearch
+  version: "0.1.0"
+  selector:
+    types:
+      - MissionControl::Connection
+      - OpenSearch::Cluster
+      - OpenSearch::Index
+      - Elasticsearch::Cluster
+      - Elasticsearch::Index
+  connections:
+    opensearch: {}
+
+  # Optional plugin properties:
+  #   defaultProfile: jaeger
+  #   index: jaeger-span*
+  #   profilesYaml: |
+  #     custom:
+  #       imports: [otel]
+  #       index: traces-*

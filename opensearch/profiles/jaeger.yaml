@@ -1,0 +1,56 @@
+name: jaeger
+format: jaeger
+index: jaeger-span*
+dateField: startTimeMillis
+traceIdField: traceID
+spanIdField: spanID
+parentIdField: references.spanID
+parentRefType: CHILD_OF
+serviceField: process.serviceName
+operationField: operationName
+statusFields:
+  - tag.otel@status_code
+  - tag.error
+  - tag.error.message
+  - tag.exception.message
+selectFields:
+  - traceID
+  - spanID
+  - operationName
+  - duration
+params:
+  trace_id:
+    field: traceID
+    operator: term
+    description: Trace ID
+  span_id:
+    field: spanID
+    operator: term
+    description: Span ID
+  service:
+    field: process.serviceName
+    operator: term
+    description: Service name
+  operation:
+    field: operationName
+    operator: match_phrase
+    description: Operation name
+  status:
+    field: tag.otel@status_code
+    operator: term
+    description: Status code
+columns:
+  - name: Time
+    field: timestamp
+  - name: Service
+    field: service_name
+  - name: Operation
+    field: operation_name
+  - name: Status
+    field: status
+  - name: Duration
+    field: duration_ms
+  - name: Trace ID
+    field: trace_id
+  - name: Span ID
+    field: span_id

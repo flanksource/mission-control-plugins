@@ -40,9 +40,9 @@ tasks:
       - task --list
 
   build:
-    desc: Build the full incident-commander binary with embedded UI
-    deps:
-      - go:build
+    desc: Build standalone plugin modules
+    cmds:
+      - task -d opensearch build
 
   clean:
     desc: Remove build artifacts and Task checksums
@@ -55,6 +55,7 @@ tasks:
   tailwind-asset:
     desc: Download the vendored Tailwind script used by the OIDC static page
     cmds:
+      - mkdir -p auth/oidc/static
       - curl -sL "https://cdn.tailwindcss.com/{{.TAILWIND_VERSION}}" -o {{.TAILWIND_JS}}
     generates:
       - "{{.TAILWIND_JS}}"
