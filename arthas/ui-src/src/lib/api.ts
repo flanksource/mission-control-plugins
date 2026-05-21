@@ -43,7 +43,3 @@ export async function callOp<T = unknown>(
 export function configIDFromURL(): string {
   return new URLSearchParams(window.location.search).get("config_id") ?? "";
 }
-
-export function pluginURL(path: string): string {
-  return new URL(path.replace(/^\//, ""), window.location.href).toString();
-}

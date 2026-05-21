@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Check, Copy, Download, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { pluginURL } from "@/lib/api";
 import { execArthas } from "./ArthasDashboardTab";
 
 type ProfilerRun = {
@@ -142,7 +141,7 @@ export function ArthasProfilerTab({ sessionId }: { sessionId: string }) {
   const [runs, setRuns] = useState<ProfilerRun[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<ProfilerOutputView>("flamegraph");
+  const [view, setView] = useState<ProfilerOutputView>("raw");
 
   const latest = runs[0] ?? null;
   const latestFlamegraph = latest?.flamegraphURL;
@@ -154,7 +153,7 @@ export function ArthasProfilerTab({ sessionId }: { sessionId: string }) {
     setError(null);
     try {
       const { results } = await execArthas(sessionId, command);
-      const flamegraphURL = extractFlamegraphURL(results, sessionId);
+      const flamegraphURL = extractFlamegraphURL(results);
       setRuns((current) => [{ command, displayCommand, results, ranAt: new Date().toISOString(), flamegraphURL }, ...current].slice(0, 20));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Profiler command failed");
@@ -437,12 +436,9 @@ function quoteArg(value: string): string {
   return `'${value.replace(/'/g, "\\'")}'`;
 }
 
-function extractFlamegraphURL(results: unknown[], sessionId: string): string | undefined {
+function extractFlamegraphURL(results: unknown[]): string | undefined {
   const text = stringifyResults(results);
-  const htmlPath = text.match(/(?:\/tmp\/arthas-output\/|arthas-output\/)([^\s"'<>]+\.html)/)?.[1];
-  if (htmlPath) return pluginURL(`proxy/${sessionId}/arthas-output/${htmlPath}`);
-  const direct = text.match(/https?:\/\/[^\s"'<>]+\.html/)?.[0];
-  return direct;
+  return text.match(/https?:\/\/[^\s"'<>]+\.html/)?.[0];
 }
 
 function buildArthasMarkdown(runs: ProfilerRun[], flamegraphURL?: string): string {

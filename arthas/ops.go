@@ -42,9 +42,7 @@ type SessionCreateParams struct {
 	Pod            string `json:"pod,omitempty"`
 	Container      string `json:"container,omitempty"`
 	LocalHTTP      int    `json:"localHttp,omitempty"`
-	LocalMCP       int    `json:"localMcp,omitempty"`
 	RemoteHTTP     int    `json:"remoteHttp,omitempty"`
-	RemoteMCP      int    `json:"remoteMcp,omitempty"`
 	SkipJDKInstall bool   `json:"skipJdkInstall,omitempty"`
 }
 
@@ -123,9 +121,7 @@ func (p *ArthasPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		Pod:            pod,
 		Container:      container,
 		LocalHTTP:      params.LocalHTTP,
-		LocalMCP:       params.LocalMCP,
 		RemoteHTTP:     params.RemoteHTTP,
-		RemoteMCP:      params.RemoteMCP,
 		SkipJDKInstall: params.SkipJDKInstall,
 	})
 	if err != nil {

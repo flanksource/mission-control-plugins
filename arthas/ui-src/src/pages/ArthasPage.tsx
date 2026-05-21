@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bug, Check, ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
+import { Bug, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastManager } from "@/components/ui/toast";
-import { callOp, configIDFromURL, pluginURL } from "@/lib/api";
+import { callOp, configIDFromURL } from "@/lib/api";
 import { ArthasDashboardTab } from "./ArthasDashboardTab";
 import { ArthasMBeanTab } from "./ArthasMBeanTab";
 import { ArthasOgnlTab } from "./ArthasOgnlTab";
@@ -19,12 +19,10 @@ interface ArthasSession {
   pod: string;
   container: string;
   httpLocalPort: number;
-  mcpLocalPort: number;
   startedAt: string;
   javaVersion?: number;
   jdkProvisioned?: boolean;
   sideloadedJavaHome?: string;
-  mcpEnabled?: boolean;
 }
 
 interface RunningPod {
@@ -317,26 +315,20 @@ function SessionDetail({
 }: {
   session: ArthasSession;
 } & SessionMenuProps) {
-  const [tab, setTab] = useState("console");
-  const consoleURL = pluginURL(`proxy/${session.id}/`);
+  const [tab, setTab] = useState("dashboard");
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex h-full flex-col rounded-md border border-border">
       <div className="m-2 flex items-center justify-between gap-2">
         <TabsList className="w-fit">
-          <TabsTrigger value="console">Web Console</TabsTrigger>
-          <TabsTrigger value="ognl">OGNL</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="ognl">OGNL</TabsTrigger>
           <TabsTrigger value="mbeans">MBeans</TabsTrigger>
           <TabsTrigger value="profiler">Profiler</TabsTrigger>
-          {session.mcpEnabled ? <TabsTrigger value="mcp">MCP</TabsTrigger> : <TabsTrigger value="api">HTTP API</TabsTrigger>}
           <TabsTrigger value="info">Info</TabsTrigger>
         </TabsList>
         <SessionMenu {...menuProps} selectedId={session.id} />
       </div>
-      <TabsContent value="console" className="min-h-0 flex-1 p-0">
-        <ConsoleFrame src={consoleURL} pod={session.pod} />
-      </TabsContent>
       <TabsContent value="dashboard" className="min-h-0 flex-1 overflow-hidden p-0">
         <ArthasDashboardTab sessionId={session.id} />
       </TabsContent>
@@ -348,12 +340,6 @@ function SessionDetail({
       </TabsContent>
       <TabsContent value="profiler" className="min-h-0 flex-1 overflow-hidden p-0">
         <ArthasProfilerTab sessionId={session.id} />
-      </TabsContent>
-      <TabsContent value="api" className="flex-1 overflow-auto p-4">
-        <HttpApiInstructions session={session} />
-      </TabsContent>
-      <TabsContent value="mcp" className="flex-1 overflow-auto p-4">
-        <McpInstructions session={session} />
       </TabsContent>
       <TabsContent value="info" className="flex-1 overflow-auto p-4 text-sm">
         <dl className="grid grid-cols-[9rem_1fr] gap-2">
@@ -374,81 +360,5 @@ function SessionDetail({
         </dl>
       </TabsContent>
     </Tabs>
-  );
-}
-
-function ConsoleFrame({ src, pod }: { src: string; pod: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const ref = useRef<HTMLIFrameElement | null>(null);
-  return (
-    <div className="relative h-full w-full">
-      {!loaded && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background text-sm text-muted-foreground">
-          <Spinner className="h-6 w-6" />
-          <span>Connecting to Arthas web console…</span>
-        </div>
-      )}
-      <iframe
-        ref={ref}
-        title={`Arthas ${pod}`}
-        src={src}
-        className="h-full w-full border-0"
-        onLoad={() => setLoaded(true)}
-      />
-    </div>
-  );
-}
-
-function HttpApiInstructions({ session }: { session: ArthasSession }) {
-  const apiURL = pluginURL(`proxy/${session.id}/api`);
-  const curlExample = `curl -sS -XPOST "${apiURL}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"action":"exec","command":"thread -n 3"}'`;
-  return (
-    <div className="flex flex-col gap-4 text-sm">
-      <section>
-        <h3 className="mb-1 font-semibold">Endpoint</h3>
-        <CopyBlock value={apiURL} />
-      </section>
-      <section>
-        <h3 className="mb-1 font-semibold">Example</h3>
-        <CopyBlock value={curlExample} multiline />
-      </section>
-    </div>
-  );
-}
-
-function McpInstructions({ session }: { session: ArthasSession }) {
-  const sseURL = pluginURL(`mcp/${session.id}/sse`);
-  return (
-    <div className="flex flex-col gap-4 text-sm">
-      <section>
-        <h3 className="mb-1 font-semibold">SSE endpoint</h3>
-        <CopyBlock value={sseURL} />
-      </section>
-    </div>
-  );
-}
-
-function CopyBlock({ value, multiline = false }: { value: string; multiline?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="relative">
-      <pre className={`overflow-auto rounded-md border border-border bg-muted p-2 text-xs ${multiline ? "whitespace-pre" : "whitespace-pre-wrap"}`}>
-        {value}
-      </pre>
-      <Button
-        size="xs"
-        variant="ghost"
-        className="absolute right-1 top-1"
-        onClick={async () => {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        }}
-      >
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      </Button>
-    </div>
   );
 }

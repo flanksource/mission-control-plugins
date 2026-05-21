@@ -9,7 +9,7 @@ import {
   type ProcessNode,
   type ProgressSegment,
 } from "@flanksource/clicky-ui";
-import { pluginURL } from "@/lib/api";
+import { callOp } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -61,19 +61,8 @@ async function execArthas(
   sessionId: string,
   command: string,
 ): Promise<{ results: unknown[]; state: string }> {
-  const res = await fetch(pluginURL(`proxy/${sessionId}/api`), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "exec", command }),
-  });
-  if (!res.ok) throw new Error(`arthas exec (${command}): ${res.status}`);
-  const body = await res.json();
-  const state = body.state ?? body?.body?.state ?? "UNKNOWN";
-  const results = body?.body?.results ?? [];
-  if (state !== "SUCCEEDED") {
-    throw new Error(`arthas command "${command}" failed (${state}): ${body?.body?.message ?? ""}`);
-  }
-  return { results, state };
+  const body = await callOp<{ results?: unknown[]; state?: string }>("exec", { sessionId, command });
+  return { results: body.results ?? [], state: body.state ?? "UNKNOWN" };
 }
 
 function fmtBytes(n: number | undefined): string {

@@ -1,6 +1,6 @@
 # Arthas Mission Control Plugin
 
-The Arthas plugin adds JVM diagnostics to Mission Control for Kubernetes workloads. It attaches [Arthas](https://arthas.aliyun.com/) to a Java process running in a selected pod and exposes the Arthas web console, HTTP API, and diagnostic operations from the Mission Control UI.
+The Arthas plugin adds JVM diagnostics to Mission Control for Kubernetes workloads. It attaches [Arthas](https://arthas.aliyun.com/) to a Java process running in a selected pod and exposes supported diagnostic operations from the Mission Control UI.
 
 ## What it does
 
@@ -15,8 +15,8 @@ The Arthas plugin adds JVM diagnostics to Mission Control for Kubernetes workloa
 - Resolves the selected workload to a running pod and container.
 - Copies/installs `arthas-boot.jar` into the target pod when needed.
 - Attaches Arthas to the JVM in the target container.
-- Opens Kubernetes port-forwards to the Arthas HTTP console and optional MCP endpoint.
-- Proxies the Arthas UI/API through Mission Control.
+- Opens a Kubernetes port-forward to the Arthas HTTP API for plugin-side operation handlers.
+- Executes supported Arthas commands through declared Mission Control plugin operations.
 - Tracks active sessions inside the plugin process.
 
 ## Operations
