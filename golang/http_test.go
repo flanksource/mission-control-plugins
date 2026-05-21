@@ -22,7 +22,7 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 
 	ginkgo.It("validates profile paths", func() {
 		p := newPlugin()
-		sess := NewSession("default", "pod", "app", "app-0", "app", nil)
+		sess := NewSession("", "default", "pod", "app", "app-0", "app", nil)
 		p.sessions.Add(sess)
 		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/profiles?path="+sess.ID+"/unknown", nil)
 		rec := httptest.NewRecorder()
@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 
 	ginkgo.It("serves completed profile runs from the registry", func() {
 		p := newPlugin()
-		sess := NewSession("default", "pod", "app", "app-0", "app", nil)
+		sess := NewSession("", "default", "pod", "app", "app-0", "app", nil)
 		p.sessions.Add(sess)
 		run, _ := NewProfileRun(sess.ID, "heap", "pprof", 30)
 		run.MarkDone([]byte("profile-bytes"), "pprof", nil)
@@ -53,7 +53,7 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 
 	ginkgo.It("does not download running profile runs", func() {
 		p := newPlugin()
-		sess := NewSession("default", "pod", "app", "app-0", "app", nil)
+		sess := NewSession("", "default", "pod", "app", "app-0", "app", nil)
 		p.sessions.Add(sess)
 		run, _ := NewProfileRun(sess.ID, "cpu", "auto", 30)
 		p.profiles.Add(run)

@@ -11,6 +11,7 @@ import (
 
 type Session struct {
 	ID             string    `json:"id"`
+	ConfigItemID   string    `json:"configItemId,omitempty"`
 	Namespace      string    `json:"namespace"`
 	Kind           string    `json:"kind"`
 	Name           string    `json:"name"`
@@ -44,6 +45,7 @@ func (s *Session) Stop() error {
 func (s *Session) Snapshot() Session {
 	return Session{
 		ID:             s.ID,
+		ConfigItemID:   s.ConfigItemID,
 		Namespace:      s.Namespace,
 		Kind:           s.Kind,
 		Name:           s.Name,
@@ -84,10 +86,13 @@ func (r *SessionRegistry) Get(id string) (*Session, bool) {
 	return s, ok
 }
 
-func (r *SessionRegistry) List() []Session {
+func (r *SessionRegistry) List(configItemID string) []Session {
 	r.mu.RLock()
 	out := make([]Session, 0, len(r.sessions))
 	for _, s := range r.sessions {
+		if configItemID != "" && s.ConfigItemID != configItemID {
+			continue
+		}
 		out = append(out, s.Snapshot())
 	}
 	r.mu.RUnlock()
@@ -114,16 +119,17 @@ func (r *SessionRegistry) RunningCount() int {
 	return len(r.sessions)
 }
 
-func NewSession(namespace, kind, name, pod, container string, stop func() error) *Session {
+func NewSession(configItemID, namespace, kind, name, pod, container string, stop func() error) *Session {
 	return &Session{
-		ID:        newID(),
-		Namespace: namespace,
-		Kind:      kind,
-		Name:      name,
-		Pod:       pod,
-		Container: container,
-		StartedAt: time.Now().UTC(),
-		stop:      stop,
+		ID:           newID(),
+		ConfigItemID: configItemID,
+		Namespace:    namespace,
+		Kind:         kind,
+		Name:         name,
+		Pod:          pod,
+		Container:    container,
+		StartedAt:    time.Now().UTC(),
+		stop:         stop,
 	}
 }
 
