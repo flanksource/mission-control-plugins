@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -22,8 +23,11 @@ type PortMapping struct {
 
 // Forwarder owns a running port-forward session.
 type Forwarder struct {
-	stop chan struct{}
-	done chan error
+	stop     chan struct{}
+	stopOnce sync.Once
+	done     chan struct{}
+	mu       sync.RWMutex
+	err      error
 }
 
 // Ready blocks until the forwarder is accepting connections on all local ports
@@ -32,6 +36,11 @@ func (f *Forwarder) Ready(ctx context.Context, ready <-chan struct{}) error {
 	select {
 	case <-ready:
 		return nil
+	case <-f.done:
+		if err := f.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("port-forward exited before becoming ready")
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -40,13 +49,22 @@ func (f *Forwarder) Ready(ctx context.Context, ready <-chan struct{}) error {
 // Close stops the forwarder. Returns the final error from the port-forward
 // goroutine (usually nil).
 func (f *Forwarder) Close() error {
-	select {
-	case <-f.stop:
-		// already closed
-	default:
-		close(f.stop)
-	}
-	return <-f.done
+	f.stopOnce.Do(func() { close(f.stop) })
+	<-f.done
+	return f.Err()
+}
+
+func (f *Forwarder) Err() error {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.err
+}
+
+func (f *Forwarder) finish(err error) {
+	f.mu.Lock()
+	f.err = err
+	f.mu.Unlock()
+	close(f.done)
 }
 
 // StartPortForward opens a port-forward to the given pod. Returns the forwarder
@@ -87,12 +105,12 @@ func StartPortForward(restCfg *rest.Config, namespace, pod string, ports []PortM
 		return nil, nil, fmt.Errorf("create port-forward: %w", err)
 	}
 
-	done := make(chan error, 1)
+	fwd := &Forwarder{stop: stop, done: make(chan struct{})}
 	go func() {
-		done <- pf.ForwardPorts()
+		fwd.finish(pf.ForwardPorts())
 	}()
 
-	return &Forwarder{stop: stop, done: done}, ready, nil
+	return fwd, ready, nil
 }
 
 func mustURL(raw string) *url.URL {
