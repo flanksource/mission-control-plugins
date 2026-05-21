@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -51,9 +50,9 @@ func (p *SQLServerPlugin) traceStart(ctx context.Context, req sdk.InvokeCtx) (an
 	})
 }
 
-func (p *SQLServerPlugin) traceList(_ context.Context, _ sdk.InvokeCtx) (any, error) {
+func (p *SQLServerPlugin) traceList(_ context.Context, req sdk.InvokeCtx) (any, error) {
 	p.traces.GC()
-	return p.traces.List(), nil
+	return p.traces.ListForConfig(req.ConfigItemID), nil
 }
 
 type TraceIDParams struct {
@@ -66,9 +65,9 @@ func (p *SQLServerPlugin) traceGet(_ context.Context, req sdk.InvokeCtx) (any, e
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, err
 	}
-	t, ok := p.traces.Get(params.ID)
-	if !ok {
-		return nil, fmt.Errorf("trace %q not found", params.ID)
+	t, err := p.traces.GetForConfig(params.ID, req.ConfigItemID)
+	if err != nil {
+		return nil, err
 	}
 	events := t.EventsSince(params.Since)
 	return map[string]any{
@@ -83,7 +82,7 @@ func (p *SQLServerPlugin) traceStop(_ context.Context, req sdk.InvokeCtx) (any, 
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, err
 	}
-	t, err := p.traces.Stop(params.ID)
+	t, err := p.traces.StopForConfig(params.ID, req.ConfigItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func (p *SQLServerPlugin) traceDelete(_ context.Context, req sdk.InvokeCtx) (any
 	if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
 		return nil, err
 	}
-	removed, err := p.traces.Delete(params.ID)
+	removed, err := p.traces.DeleteForConfig(params.ID, req.ConfigItemID)
 	if err != nil {
 		return nil, err
 	}

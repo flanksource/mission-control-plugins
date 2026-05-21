@@ -5,4 +5,4 @@ package main
 // uiChecksum is the sha256 of every file embedded under ui/.
 // Regenerated on every `task build:plugin:arthas` or
 // `go generate ./plugins/arthas/...`.
-const uiChecksum = "0b47ce51950a3b2065184e08971a7efd1aa0fe212a8ce073364553dfd7ece6a8"
+const uiChecksum = "aa3de343da8b23fc4b8d49b7bf5aeebc591ed3a53539889db0bb1c68c0592666"

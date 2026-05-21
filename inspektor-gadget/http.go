@@ -58,9 +58,12 @@ func (p *InspektorGadgetPlugin) httpSession(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "missing session id", http.StatusBadRequest)
 		return
 	}
-	sess, ok := p.sessions.Get(id)
-	if !ok {
-		http.Error(w, "session not found", http.StatusNotFound)
+	sess, err := p.sessionForConfig(r.Context(), sdk.InvokeCtx{
+		ConfigItemID: configItemIDFromRequest(r),
+		Host:         sdk.HostClientFromContext(r.Context()),
+	}, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	switch tail {
@@ -78,6 +81,13 @@ func (p *InspektorGadgetPlugin) httpSession(w http.ResponseWriter, r *http.Reque
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func configItemIDFromRequest(r *http.Request) string {
+	if id := sdk.ConfigItemIDFromContext(r.Context()); id != "" {
+		return id
+	}
+	return r.URL.Query().Get("config_id")
 }
 
 func streamSessionEvents(w http.ResponseWriter, r *http.Request, sess *TraceSession) {

@@ -215,6 +215,8 @@ function App() {
     setSessions(nextSessions);
     if (!selectedSession && nextSessions.length > 0) {
       setSelectedSession(nextSessions[0].id);
+    } else if (selectedSession && !nextSessions.some((session) => session.id === selectedSession)) {
+      setSelectedSession(nextSessions[0]?.id ?? "");
     }
   }
 
@@ -225,7 +227,15 @@ function App() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      invoke<Session[]>("trace-list").then(setSessions).catch(() => undefined);
+      invoke<Session[]>("trace-list")
+        .then((nextSessions) => {
+          setSessions(nextSessions);
+          setSelectedSession((current) => {
+            if (!current) return nextSessions[0]?.id ?? "";
+            return nextSessions.some((session) => session.id === current) ? current : nextSessions[0]?.id ?? "";
+          });
+        })
+        .catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
   }, []);
