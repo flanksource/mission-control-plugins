@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -93,15 +93,29 @@ function fmtUptime(ms: number | undefined): string {
 }
 
 export function ArthasDashboardTab({ sessionId }: { sessionId: string }) {
+  // Arthas waits one sample interval before returning, so a flat -i 5000 keeps
+  // the user staring at a spinner for 5s. We ramp the interval across the first
+  // few fetches: 200ms → 1s → 5s. Thread CPU% is noisy in the first two frames
+  // but quickly settles into a proper 5s average once steady-state hits.
+  const fetchCountRef = useRef(0);
+  useEffect(() => {
+    fetchCountRef.current = 0;
+  }, [sessionId]);
+
   const { data, isLoading, error, dataUpdatedAt } = useQuery({
     queryKey: ["arthas", sessionId, "dashboard"],
     queryFn: async () => {
-      const { results } = await execArthas(sessionId, "dashboard -n 1");
-      // results is a list; the dashboard payload is the first entry with memoryInfo/etc.
+      const idx = fetchCountRef.current++;
+      let sampleMs = 5000;
+      if (idx === 0) sampleMs = 200;
+      else if (idx === 1) sampleMs = 1000;
+      const { results } = await execArthas(sessionId, `dashboard -n 1 -i ${sampleMs}`);
       const payload = (results as DashboardResult[]).find((r) => r?.memoryInfo || r?.threads);
       return payload ?? {};
     },
-    refetchInterval: 5_000,
+    // During warmup (first two fetches) chain the next sample almost
+    // immediately; once settled, poll on the normal 5s cadence.
+    refetchInterval: () => (fetchCountRef.current < 2 ? 100 : 5_000),
     refetchIntervalInBackground: false,
   });
 
