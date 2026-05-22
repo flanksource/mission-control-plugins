@@ -128,7 +128,7 @@ export function ArthasDashboardTab({ sessionId }: { sessionId: string }) {
   const gc = d.gcInfos ?? [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">JVM Dashboard</h3>
         <span className="text-xs text-muted-foreground">
@@ -168,7 +168,7 @@ export function ArthasDashboardTab({ sessionId }: { sessionId: string }) {
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-1 flex-col">
+      <section className="flex min-h-[28rem] flex-1 flex-col">
         <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
           Threads ({threads.length})
         </h4>

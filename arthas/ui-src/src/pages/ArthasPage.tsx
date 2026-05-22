@@ -367,7 +367,7 @@ function SessionDetail({
         </TabsList>
         <SessionMenu {...menuProps} selectedId={session.id} />
       </div>
-      <TabsContent value="dashboard" className="min-h-0 flex-1 overflow-hidden p-0">
+      <TabsContent value="dashboard" className="min-h-0 flex-1 overflow-y-auto p-0">
         <ArthasDashboardTab sessionId={session.id} />
       </TabsContent>
       <TabsContent value="ognl" className="min-h-0 flex-1 overflow-hidden p-0">
