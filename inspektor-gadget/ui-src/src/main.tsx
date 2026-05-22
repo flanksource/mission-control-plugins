@@ -244,6 +244,11 @@ function App() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const activeSession = useMemo(
+    () => sessions.find((session) => session.id === selectedSession) || null,
+    [sessions, selectedSession]
+  );
+
   useEffect(() => {
     setEvents([]);
     if (!selectedSession) return;
@@ -257,12 +262,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedSession]);
-
-  const activeSession = useMemo(
-    () => sessions.find((session) => session.id === selectedSession) || null,
-    [sessions, selectedSession]
-  );
+  }, [selectedSession, activeSession?.state]);
   const activeGadgetSpec = useMemo(
     () => gadgets.find((gadget) => gadget.id === activeSession?.gadgetId) || null,
     [gadgets, activeSession?.gadgetId]

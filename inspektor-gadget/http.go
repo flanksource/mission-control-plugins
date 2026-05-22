@@ -25,7 +25,7 @@ func (p *InspektorGadgetPlugin) httpInvoke(operation string, handler func(contex
 		res, err := handler(r.Context(), sdk.InvokeCtx{
 			Operation:    operation,
 			ParamsJSON:   params,
-			ConfigItemID: sdk.ConfigItemIDFromContext(r.Context()),
+			ConfigItemID: configItemIDFromRequest(r),
 			Host:         sdk.HostClientFromContext(r.Context()),
 		})
 		if err != nil {

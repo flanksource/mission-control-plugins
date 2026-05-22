@@ -1,14 +1,30 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/flanksource/incident-commander/plugin/sdk"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = ginkgo.Describe("http", func() {
+	ginkgo.It("passes config_id query parameters into operation invoke context", func() {
+		plugin := newPlugin()
+		handler := plugin.httpInvoke("trace-list", func(_ context.Context, req sdk.InvokeCtx) (any, error) {
+			Expect(req.ConfigItemID).To(Equal("config-123"))
+			return map[string]string{"ok": "true"}, nil
+		})
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/trace-list?config_id=config-123", nil)
+		handler.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+	})
+
 	ginkgo.It("exports buffered events as an attachment", func() {
 		plugin := newPlugin()
 		gadget, ok := gadgetByID("trace_exec", defaultIGTag)
