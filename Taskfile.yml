@@ -371,6 +371,12 @@ tasks:
       - task: plugin:build
         vars: { PLUGIN: postgres }
 
+  build:plugin:s3:
+    desc: Build and install the s3 plugin
+    cmds:
+      - task: plugin:build
+        vars: { PLUGIN: s3 }
+
   build:plugin:sql-server:
     desc: Build and install the sql-server plugin
     cmds:

@@ -1,0 +1,10 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: s3
+spec:
+  source: s3-mc-plugin
+  selector:
+    types:
+      - MissionControl::Connection
+    labelSelector: mission-control/connection-type=s3
