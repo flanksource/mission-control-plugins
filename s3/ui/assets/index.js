@@ -21467,8 +21467,8 @@ function currentWindow() {
   return window;
 }
 const PLUGIN_NAME = "s3";
-const PLUGIN_VERSION = "v1.0.9-1-g364a336-dirty";
-const PLUGIN_BUILD_DATE = "2026-05-22 18:59:12";
+const PLUGIN_VERSION = "v1.0.9-2-ga238f20-dirty";
+const PLUGIN_BUILD_DATE = "2026-05-22 19:01:13";
 function logBanner() {
   const date = ` (built ${PLUGIN_BUILD_DATE})`;
   console.info(`[${PLUGIN_NAME}] UI v${PLUGIN_VERSION}${date}`);
@@ -21522,8 +21522,7 @@ function TreePane({
         return { text: "Loading…", title: "Loading folder" };
       }
       return null;
-    },
-    search: true
+    }
   });
   reactExports.useEffect(() => {
     const additions = paths.filter((path) => !knownPathsRef.current.has(path) && !model.getItem(path));

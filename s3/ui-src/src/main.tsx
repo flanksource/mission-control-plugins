@@ -110,7 +110,6 @@ function TreePane({
       }
       return null;
     },
-    search: true,
   });
 
   useEffect(() => {
