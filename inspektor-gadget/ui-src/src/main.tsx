@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
@@ -201,7 +201,6 @@ function App() {
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(true);
   const [sessionsWidth, setSessionsWidth] = useState(320);
-  const esRef = useRef<EventSource | null>(null);
 
   async function refresh() {
     setError("");
@@ -246,21 +245,18 @@ function App() {
   }, []);
 
   useEffect(() => {
-    esRef.current?.close();
     setEvents([]);
     if (!selectedSession) return;
-    const es = new EventSource(pluginUiPath(`/sessions/${selectedSession}/events`));
-    es.onmessage = (msg) => {
-      try {
-        const event = JSON.parse(msg.data) as TraceEvent;
-        setEvents((prev) => [...prev.slice(-999), event]);
-      } catch {
-        return;
-      }
+    let cancelled = false;
+    invoke<TraceEvent[]>("trace-events", { id: selectedSession })
+      .then((next) => {
+        if (cancelled) return;
+        setEvents((next ?? []).slice(-1000));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
     };
-    es.addEventListener("done", () => es.close());
-    esRef.current = es;
-    return () => es.close();
   }, [selectedSession]);
 
   const activeSession = useMemo(
