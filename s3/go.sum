@@ -147,6 +147,8 @@ github.com/flanksource/duty v1.0.1312 h1:8PMjwaX5SDg6ts8qx1g797YaUSfIj/VmIHUNoek
 github.com/flanksource/duty v1.0.1312/go.mod h1:ChItDnhhpgn5MjoRIwNBGIw6GOpvUTqag6D1nz+NKFA=
 github.com/flanksource/gomplate/v3 v3.24.80 h1:flN5n7v8sA2JR8PTP9f68ITF15cpiJoms5ZdSs0QJB0=
 github.com/flanksource/gomplate/v3 v3.24.80/go.mod h1:RzIg+YwNQI0eUV61LtqmhNN2Qw8ebm1cGa6IhNQmkWE=
+github.com/flanksource/incident-commander v0.0.1779 h1:pcooTvaTa64bCAFerOhI4JtKZxJ3siINz67lOLctjxg=
+github.com/flanksource/incident-commander v0.0.1779/go.mod h1:MERNXxDksnTAIbNlNS53HUOHz9TnCIbm0AiuzxLGKuA=
 github.com/flanksource/is-healthy v1.0.87 h1:wSK9wI9tu//gdKO9JxyZe8ZQ5H7MCpwG17KdbWaiMeM=
 github.com/flanksource/is-healthy v1.0.87/go.mod h1:xoEeeCamUiW8fGWGyRaGL9NU4xQzou+sgDC5raguDew=
 github.com/flanksource/kubectl-neat v1.0.4 h1:t5/9CqgE84oEtB0KitgJ2+WIeLfD+RhXSxYrqb4X8yI=

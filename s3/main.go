@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"path"
 	"strconv"
@@ -328,7 +329,11 @@ func (p *S3Plugin) getObject(ctx context.Context, req sdk.InvokeCtx) (any, error
 	if err != nil {
 		return nil, fmt.Errorf("get s3 object %s/%s: %w", resolved.Bucket, params.Key, err)
 	}
-	defer out.Body.Close()
+	defer func() {
+		if err := out.Body.Close(); err != nil {
+			log.Printf("failed to close body: %v", err)
+		}
+	}()
 
 	data, err := io.ReadAll(io.LimitReader(out.Body, params.MaxBytes+1))
 	if err != nil {
