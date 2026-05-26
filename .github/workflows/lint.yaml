@@ -22,6 +22,7 @@ jobs:
           - inspektor-gadget
           - kubernetes-logs
           - postgres
+          - s3
           - sql-server
 
     steps:
