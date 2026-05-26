@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
-	github.com/flanksource/incident-commander v0.0.1762
+	github.com/flanksource/incident-commander v0.0.1779
 )
 
 require (
@@ -225,5 +225,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/flanksource/incident-commander => ../../mission-control
