@@ -96,9 +96,8 @@ spec:
 - `spec.source` — name of the plugin binary.
 - `spec.selector.types` — which catalog item types invoke this plugin's tabs
   and operations.
-- `spec.connections` — an **allowlist**. The host enforces this on every
-  `HostClient.GetConnection` call: a plugin requesting a connection type it
-  did not declare gets rejected at the host.
+- `spec.connections` — an **allowlist** for type/label connection lookups.
+  A plugin requesting an undeclared mapped connection gets rejected at the host.
 
 ## gRPC: `PluginService` (host → plugin)
 
@@ -246,8 +245,12 @@ to import `duty` in the plugin just to build a selector.
 
 ```proto
 message GetConnectionRequest {
-  string type           = 1;   // "aws" | "kubernetes" | "gcp" | "azure"
-  string config_item_id = 2;   // optional: derive creds from this catalog item
+  oneof lookup {
+    string type                 = 1; // resolve via Plugin.spec.connections.types
+    string config_item_id       = 2; // resolve the scraper connection for this config item
+    string label                = 3; // resolve via Plugin.spec.connections.labels
+    string connection_id        = 4; // resolve a Mission Control connection by id
+  }
 }
 
 message ResolvedConnection {
@@ -262,10 +265,12 @@ message ResolvedConnection {
 }
 ```
 
-Resolves credentials through the same `SetupConnection()` pipeline that
-playbook exec actions use. **Enforced against `Plugin.spec.connections`** —
-requesting an undeclared type fails. Resolved connections are cached
-host-side for ~5 minutes.
+Type and label lookups are enforced against `Plugin.spec.connections`.
+`config_item_id` keeps the legacy behavior (connection used by the config's
+scraper). `connection_id` is for direct connection lookup; plugins attached to
+`MissionControl::Connection` items, such as the S3 plugin, can pass their
+`config_item_id` because it is the same as the underlying connection id.
+Resolved connections are cached host-side for ~5 minutes.
 
 ### `Log(LogEntry) → Empty`
 
@@ -420,6 +425,7 @@ Rule of thumb: if an operator might want to grep for it tomorrow, use
 | [`inspektor-gadget/`](inspektor-gadget/) | eBPF gadget runs with widget-typed event streams |
 | [`postgres/`](postgres/) | Postgres introspection — sessions, locks, schema, console |
 | [`sql-server/`](sql-server/) | SQL Server introspection |
+| [`s3/`](s3/) | S3 bucket browsing from connection items |
 | [`arthas/`](arthas/) | JVM diagnostics via Arthas |
 
 [go-plugin]: https://github.com/hashicorp/go-plugin
