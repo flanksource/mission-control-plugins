@@ -12,10 +12,6 @@ $(LOCALBIN):
 
 ## Tool Binaries
 DEPS ?= $(LOCALBIN)/deps
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-
-## Tool Versions
-GOLANGCI_LINT_VERSION ?= 2.12.2
 
 PLUGIN_MODULES := $(sort $(dir $(shell find . -mindepth 2 -maxdepth 2 -name go.mod)))
 PLUGINS := $(patsubst %/,%,$(PLUGIN_MODULES))
@@ -37,23 +33,15 @@ $(DEPS): | $(LOCALBIN)
 	fi
 
 .PHONY: deps
-deps: install-deps golangci-lint ## Install all tool dependencies
-
-.PHONY: golangci-lint
-golangci-lint: install-deps $(LOCALBIN) ## Install golangci-lint locally
-	$(DEPS) install golangci/golangci-lint@v$(GOLANGCI_LINT_VERSION) --bin-dir $(LOCALBIN)
+deps: install-deps ## Install all tool dependencies
 
 .PHONY: pnpm
 pnpm: ## Verify global pnpm is available
 	@command -v pnpm >/dev/null 2>&1 || (echo "pnpm is required on PATH" >&2; exit 1)
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint on all plugin modules
-	@set -e; \
-	for module in $(PLUGIN_MODULES); do \
-		echo "Running golangci-lint in $$module"; \
-		(cd $$module && $(GOLANGCI_LINT) run --path-mode=abs); \
-	done
+lint: ## Run golangci-lint on all plugin modules
+	task lint
 
 .PHONY: plugins-ui
 plugins-ui: pnpm ## Build all plugin UI bundles
