@@ -2,4 +2,4 @@
 
 package main
 
-const uiChecksum = "3cd62e3217a7efe783da799150f7aa62dec08278c38a3bf392631fbf81684742"
+const uiChecksum = "4511cf2a0e8fd37cc61fa770ecd0d030b75c45d1ebfd03a6d7b14d357709611e"

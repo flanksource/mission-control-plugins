@@ -8,6 +8,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/http"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -30,6 +31,16 @@ var (
 	Version   = ""
 	BuildDate = ""
 )
+
+func versionWithUIChecksum() string {
+	if uiChecksum == "" {
+		return Version
+	}
+	if Version == "" {
+		return "ui " + uiChecksum
+	}
+	return Version + " ui " + uiChecksum
+}
 
 func main() {
 	sub, err := fs.Sub(uiAssets, "ui")
@@ -66,10 +77,15 @@ func (p *OpenSearchPlugin) Manifest() *pluginpb.PluginManifest {
 		Version:      sdk.FormatVersion(Version, BuildDate, uiChecksum),
 		Description:  "Query OpenSearch trace indexes through profile-driven filters and table views.",
 		Capabilities: []string{"tabs", "operations"},
+		Operations:   operationDefs(),
 		Tabs: []*pluginpb.TabSpec{
-			{Name: "OpenSearch", Icon: "lucide:search", Path: "/", Scope: "config"},
+			{
+				Name:  "OpenSearch",
+				Icon:  "lucide:search",
+				Path:  "/",
+				Scope: "config",
+			},
 		},
-		Operations: operationDefs(),
 	}
 }
 
@@ -106,7 +122,7 @@ func (p *OpenSearchPlugin) Operations() []sdk.Operation {
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
 		if h, ok := handlers[d.Name]; ok {
-			out = append(out, sdk.Operation{Def: d, Handler: h})
+			out = append(out, sdk.Operation{Def: d, Handler: h, HTTPHandler: p.httpInvoke(d.Name, h)})
 		}
 	}
 	return out
@@ -114,7 +130,13 @@ func (p *OpenSearchPlugin) Operations() []sdk.Operation {
 
 func operationDefs() []*pluginpb.OperationDef {
 	mk := func(name, desc string) *pluginpb.OperationDef {
-		return &pluginpb.OperationDef{Name: name, Description: desc, Scope: "config", ResultMime: sdk.ClickyResultMimeType}
+		return &pluginpb.OperationDef{
+			Name:        name,
+			Description: desc,
+			Scope:       "config",
+			ResultMime:  sdk.ClickyResultMimeType,
+			Http:        []*pluginpb.HTTPBinding{{Method: http.MethodPost}},
+		}
 	}
 	return []*pluginpb.OperationDef{
 		mk(OpProfilesList, "List resolved OpenSearch tracing profiles."),

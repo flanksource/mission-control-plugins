@@ -84,8 +84,10 @@ function configIDFromURL(): string {
 }
 
 function operationURL(op: string): string {
-  const base = window.location.pathname.replace(/\/ui\/.*$/, "");
-  const url = new URL(base + "/operations/" + op, window.location.origin);
+  const path = window.location.pathname;
+  const base = path.replace(/\/(?:__mc\/)?ui\/?(?:.*)?$/, "");
+  const operationsPrefix = path.includes("/__mc/ui") ? "/__mc/operations/" : "/operations/";
+  const url = new URL(base + operationsPrefix + op, window.location.origin);
   const configID = configIDFromURL();
   if (configID) url.searchParams.set("config_id", configID);
   return url.toString();
