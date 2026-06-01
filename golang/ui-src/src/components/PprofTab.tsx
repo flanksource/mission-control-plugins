@@ -23,7 +23,7 @@ export function PprofTab({ session }: { session: GolangSession }) {
         <Button asChild size="sm" variant="outline">
           <a href={url} target="_blank" rel="noreferrer">
             <FileText className="h-4 w-4" />
-            Open pprof index
+            Open pprof in new tab
           </a>
         </Button>
       </div>
