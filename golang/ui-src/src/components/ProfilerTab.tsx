@@ -74,9 +74,6 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
           <Play className="h-4 w-4" />
           Timed sample
         </Button>
-        <Button size="sm" variant="outline" onClick={() => runsQ.refetch()}>
-          Status
-        </Button>
         <Button
           size="sm"
           variant="destructive"

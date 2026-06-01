@@ -1,7 +1,6 @@
 import { useMemo, useState } from "preact/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
-import { Badge, Button, countGoroutinesByState, parseGoroutineDump, type ParsedGoroutine } from "@flanksource/clicky-ui";
+import { Badge, countGoroutinesByState, parseGoroutineDump, type ParsedGoroutine } from "@flanksource/clicky-ui";
 import { callOp, type GolangSession, type GoroutineSnapshot } from "../api";
 import { Empty, ErrorText, GopsRequiredOverlay, LoadingOverlay, RefetchIndicator } from "./ui";
 
@@ -36,10 +35,7 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
             {goroutinesQ.data?.source ? `source: ${goroutinesQ.data.source}` : "Load the current stack dump."}
           </p>
         </div>
-        <Button size="sm" loading={goroutinesQ.isFetching} onClick={() => goroutinesQ.refetch()}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input
