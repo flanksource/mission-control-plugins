@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { Badge, Button, countGoroutinesByState, parseGoroutineDump, type ParsedGoroutine } from "@flanksource/clicky-ui";
 import { callOp, type GolangSession, type GoroutineSnapshot } from "../api";
-import { Empty, ErrorText } from "./ui";
+import { Empty, ErrorText, GopsRequiredOverlay } from "./ui";
 
 export function GoroutinesTab({ session }: { session: GolangSession }) {
   const [query, setQuery] = useState("");
@@ -11,8 +11,8 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
   const goroutinesQ = useQuery({
     queryKey: ["golang", session.id, "goroutines"],
     queryFn: () => callOp<GoroutineSnapshot>("goroutines", { sessionId: session.id }),
-    enabled: true,
-    refetchInterval: 5_000,
+    enabled: session.gopsAvailable,
+    refetchInterval: session.gopsAvailable ? 5_000 : false,
     refetchIntervalInBackground: false,
   });
   const dump = goroutinesQ.data?.dump ?? "";
@@ -21,7 +21,9 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
   const counts = useMemo(() => countGoroutinesByState(parsed), [parsed]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 p-4">
+    <div className="relative h-full min-h-0">
+      {!session.gopsAvailable && <GopsRequiredOverlay>gops is required to inspect goroutines.</GopsRequiredOverlay>}
+      <div className={`flex h-full min-h-0 flex-col gap-3 p-4 ${!session.gopsAvailable ? "pointer-events-none blur-sm" : ""}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Goroutines</h3>
@@ -53,7 +55,9 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
           <Badge key={state} variant="outline" size="sm">{state}: {count}</Badge>
         ))}
       </div>
-      {goroutinesQ.error ? (
+      {goroutinesQ.data?.error ? (
+        <ErrorText error={goroutinesQ.data.error} />
+      ) : goroutinesQ.error ? (
         <ErrorText error={goroutinesQ.error} />
       ) : dump && parsed.length === 0 ? (
         <pre className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">{dump}</pre>
@@ -70,6 +74,7 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

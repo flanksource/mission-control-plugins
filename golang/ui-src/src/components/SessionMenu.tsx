@@ -6,7 +6,7 @@ import { Field } from "./ui";
 import type { SessionStartTarget } from "./types";
 import { errorMessage, parsePortInput, sessionMatchesTarget } from "./utils";
 
-const DEFAULT_GOPS_PORT = 6060
+const DEFAULT_GOPS_PORT = 6060;
 const DEFAULT_PPROF_PORT = 6060;
 
 type SessionMenuProps = {
@@ -128,7 +128,6 @@ export function SessionMenu({
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-1">
                         <Badge variant="outline" size="sm">{target.namespace}</Badge>
-                        {target.ports.length > 0 && <Badge variant="outline" size="sm">ports {target.ports.join(", ")}</Badge>}
                         {session && <Badge tone="success" variant="soft" size="sm">active</Badge>}
                       </span>
                     </button>
