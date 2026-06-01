@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ExternalLink, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
 import { Button, SplitPane } from "@flanksource/clicky-ui";
 import { callOp, pluginURL, type GolangSession, type ProfileKind, type ProfileRun, type ProfileSource } from "../api";
-import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, RunBadge } from "./ui";
+import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, RunBadge } from "./ui";
 import { errorMessage, fmtBytes, fmtDuration } from "./utils";
 
 const PROFILE_KINDS: ProfileKind[] = ["cpu", "trace", "heap"];
@@ -20,7 +20,8 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
   const runsQ = useQuery({
     queryKey: ["golang", session.id, "profile-runs"],
     queryFn: () => callOp<ProfileRun[]>("profile-runs-list", { sessionId: session.id }),
-    refetchInterval: 2_000,
+    enabled: session.pprofAvailable,
+    refetchInterval: session.pprofAvailable ? 2_000 : false,
   });
   const runs = runsQ.data ?? [];
   const selected = runs.find((run) => run.id === selectedRunID) ?? runs[0] ?? null;
@@ -115,12 +116,17 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
   );
 
   const output = <ProfilerOutputView session={session} run={selected} />;
-  const available = session.gopsAvailable || session.pprofAvailable;
+  const available = session.pprofAvailable;
+  const loading = available && runsQ.isFetching && !runsQ.data;
+  const refetching = available && runsQ.isFetching && !!runsQ.data;
+  const blocked = !available || loading;
 
   return (
     <div className="relative h-full min-h-0">
-      {!available && <GopsRequiredOverlay>gops or pprof is required to capture profiles.</GopsRequiredOverlay>}
-      <div className={`h-full min-h-0 ${!available ? "pointer-events-none blur-sm" : ""}`}>
+      {!available && <GopsRequiredOverlay>pprof is required to capture profiles.</GopsRequiredOverlay>}
+      {loading && <LoadingOverlay>Loading profile runs…</LoadingOverlay>}
+      {refetching && <RefetchIndicator>Refreshing profile runs…</RefetchIndicator>}
+      <div className={`h-full min-h-0 ${blocked ? "pointer-events-none blur-sm" : ""}`}>
         <SplitPane left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />
       </div>
     </div>
