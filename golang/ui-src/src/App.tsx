@@ -114,7 +114,7 @@ export function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="Refresh" onClick={() => refreshAll(qc, configID)}>
+          <Button variant="ghost" size="icon" title="Refresh" onClick={() => refreshAll(qc)}>
             <RefreshCw className="h-4 w-4" />
           </Button>
           <SessionMenu
@@ -178,7 +178,6 @@ export function App() {
   );
 }
 
-function refreshAll(qc: QueryClient, configID: string) {
-  qc.invalidateQueries({ queryKey: podsKey(configID) });
-  qc.invalidateQueries({ queryKey: sessionsKey(configID) });
+function refreshAll(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["golang"] });
 }
