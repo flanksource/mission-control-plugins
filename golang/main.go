@@ -11,7 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
+	pluginpb "github.com/flanksource/incident-commander/plugin"
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
@@ -59,7 +59,6 @@ type GolangPlugin struct {
 }
 
 type PluginSettings struct {
-	DefaultGopsPort  int      `json:"defaultGopsPort,omitempty"`
 	DefaultGopsPorts []int    `json:"defaultGopsPorts,omitempty"`
 	DefaultPprofPort int      `json:"defaultPprofPort,omitempty"`
 	PprofBasePath    string   `json:"pprofBasePath,omitempty"`
@@ -71,6 +70,7 @@ type PluginSettings struct {
 func defaultSettings() PluginSettings {
 	return PluginSettings{
 		DefaultGopsPorts: []int{6061},
+		DefaultPprofPort: 6060,
 		PprofBasePath:    "/debug/pprof",
 		GopsConfigDirs:   []string{"/tmp/gops", "/root/.config/gops", "/home/*/.config/gops"},
 		MaxSessions:      5,
@@ -104,9 +104,6 @@ func (p *GolangPlugin) Manifest() *pluginpb.PluginManifest {
 
 func (p *GolangPlugin) Configure(_ context.Context, settings map[string]any) error {
 	next := p.settings
-	if v, ok := numberSetting(settings, "defaultGopsPort"); ok && v > 0 {
-		next.DefaultGopsPort = v
-	}
 	if v, ok := intSliceSetting(settings, "defaultGopsPorts"); ok {
 		next.DefaultGopsPorts = v
 	}

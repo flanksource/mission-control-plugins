@@ -155,7 +155,8 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 			diagnostics = append(diagnostics, "no gops port file found")
 		}
 	}
-	gopsPorts := gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPort, p.settings.DefaultGopsPorts)
+
+	gopsPorts := gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPorts)
 	if gopsPort == 0 && len(gopsPorts) > 0 {
 		diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports: %s", formatPorts(gopsPorts)))
 	}
@@ -669,16 +670,11 @@ func normalizeProfileSource(source string) string {
 	}
 }
 
-func gopsCandidatePorts(discovered, configured int, defaults []int) []int {
+func gopsCandidatePorts(discovered int, defaults []int) []int {
 	if discovered > 0 {
 		return []int{discovered}
 	}
-	out := []int{}
-	if configured > 0 {
-		out = append(out, configured)
-	}
-	out = append(out, defaults...)
-	return uniquePositiveInts(out...)
+	return uniquePositiveInts(defaults...)
 }
 
 func pprofCandidatePorts(explicit, configured int, containerPorts []int) []int {

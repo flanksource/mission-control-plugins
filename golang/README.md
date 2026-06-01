@@ -28,8 +28,14 @@ For pprof, mount the standard handlers on a localhost-only admin listener, for
 example `127.0.0.1:6060/debug/pprof`.
 
 If no explicit ports are provided, the plugin tries readable gops port files,
-then configured/default gops ports. It also probes `/debug/pprof/` on declared
-Kubernetes `containerPort` values for the selected container.
+then configured/default gops ports. It also probes `/debug/pprof/` on configured
+and declared Kubernetes `containerPort` values for the selected container. gops
+and pprof can run on different ports; the plugin creates separate pod
+port-forwards for each endpoint.
+
+The session-create request can provide `gopsPort`, `pprofPort`, and
+`pprofBasePath` per session, so the same plugin installation can attach to pods
+with different diagnostics ports.
 
 The plugin reaches these localhost-only ports with Kubernetes pod port-forward,
 so the target process does not need to bind to `0.0.0.0`.
