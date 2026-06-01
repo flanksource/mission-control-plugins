@@ -39,7 +39,9 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["golang", session.id, "profile-runs"] }),
   });
 
+  const durationApplies = kind !== "heap";
   const preview = profilePreview(kind, source, seconds, session);
+  const profileParams = { sessionId: session.id, kind, source, ...(durationApplies ? { seconds } : {}) };
   const controls = (
     <section className="flex min-h-0 flex-col gap-3 p-3">
       <div>
@@ -57,22 +59,28 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
             {PROFILE_SOURCES.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </Field>
-        <Field label="Duration seconds">
-          <input className="h-8 rounded-md border bg-background px-2 text-xs" type="number" min={1} max={300} value={seconds} onInput={(event) => setSeconds(Number((event.target as HTMLInputElement).value))} />
+        <Field label={durationApplies ? "Duration seconds" : "Duration"}>
+          <input
+            className="h-8 rounded-md border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            type="number"
+            min={1}
+            max={300}
+            value={seconds}
+            disabled={!durationApplies}
+            title={durationApplies ? undefined : "Heap profiles are snapshots and do not use duration"}
+            onInput={(event) => setSeconds(Number((event.target as HTMLInputElement).value))}
+          />
         </Field>
       </div>
       <div className="rounded-md border bg-muted/30 p-2">
         <div className="mb-1 text-xs text-muted-foreground">Request preview</div>
         <pre className="overflow-auto font-mono text-xs">{preview}</pre>
+        {!durationApplies && <div className="mt-1 text-xs text-muted-foreground">Heap profiles are point-in-time snapshots; duration is ignored.</div>}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" loading={start.isPending} onClick={() => start.mutate({ sessionId: session.id, kind, source, seconds })}>
+        <Button size="sm" loading={start.isPending} onClick={() => start.mutate(profileParams)}>
           <Play className="h-4 w-4" />
-          Start
-        </Button>
-        <Button size="sm" variant="secondary" loading={start.isPending} onClick={() => start.mutate({ sessionId: session.id, kind, source, seconds })}>
-          <Play className="h-4 w-4" />
-          Timed sample
+          {durationApplies ? "Timed sample" : "Snapshot"}
         </Button>
         <Button
           size="sm"
@@ -217,7 +225,7 @@ function ProfilerRawView({ run }: { run: ProfileRun }) {
         <InfoCard title="Timing">
           <KV k="Started" v={new Date(run.startedAt).toLocaleString()} />
           <KV k="Completed" v={run.completedAt ? new Date(run.completedAt).toLocaleString() : "running"} />
-          <KV k="Duration" v={run.seconds ? `${run.seconds}s` : "default"} />
+          <KV k="Duration" v={run.kind === "heap" ? "snapshot" : run.seconds ? `${run.seconds}s` : "default"} />
         </InfoCard>
       </div>
       <pre className="min-h-40 flex-1 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">
