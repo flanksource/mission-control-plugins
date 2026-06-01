@@ -124,7 +124,7 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
       {loading && <LoadingOverlay>Loading profile runs…</LoadingOverlay>}
       {refetching && <RefetchIndicator>Refreshing profile runs…</RefetchIndicator>}
       <div className={`h-full min-h-0 ${blocked ? "pointer-events-none blur-sm" : ""}`}>
-        <SplitPane left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />
+        <SplitPane className="h-full" left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />
       </div>
     </div>
   );
