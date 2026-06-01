@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import { RefreshCw } from "lucide-react";
 import { Badge, Button } from "@flanksource/clicky-ui";
 import type { ActiveTab } from "./types";
@@ -85,6 +86,22 @@ export function RefetchIndicator({ children = "Refreshing…" }: { children?: Co
       {children}
     </div>
   );
+}
+
+export function useDelayedTruthy(value: boolean, delayMs = 600) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!value) {
+      setVisible(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setVisible(true), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [value, delayMs]);
+
+  return visible;
 }
 
 export function RunBadge({ run }: { run: { state: string } }) {

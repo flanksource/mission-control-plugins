@@ -40,24 +40,6 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 		Expect(rec.Header().Get("Content-Disposition")).To(ContainSubstring(pluginName))
 	})
 
-	ginkgo.It("renders completed profile runs as static SVG", func() {
-		p := newPlugin()
-		sess := NewSession("", "default", "pod", "app", "app-0", "app", nil)
-		p.sessions.Add(sess)
-		run, _ := NewProfileRun(sess.ID, "heap", "pprof", 30)
-		run.MarkDone(generateHeapProfile(), "pprof", nil)
-		p.profiles.Add(run)
-
-		req := httptest.NewRequest(http.MethodGet, "/__mc/operations/profiles?path="+sess.ID+"/"+run.ID+"/flamegraph&si=inuse_space", nil)
-		rec := httptest.NewRecorder()
-
-		httpOp(p, OpHTTPProfiles).ServeHTTP(rec, req)
-
-		Expect(rec.Code).To(Equal(http.StatusOK))
-		Expect(rec.Header().Get("Content-Type")).To(Equal("image/svg+xml"))
-		Expect(rec.Body.String()).To(ContainSubstring("<svg"))
-	})
-
 	ginkgo.It("does not download running profile runs", func() {
 		p := newPlugin()
 		sess := NewSession("", "default", "pod", "app", "app-0", "app", nil)

@@ -68,6 +68,8 @@ export function App() {
         namespace: target.namespace,
         pod: target.pod,
         container: target.container,
+        useGops: target.useGops,
+        usePprof: target.usePprof,
         gopsPort: target.gopsPort,
         pprofPort: target.pprofPort,
       }),

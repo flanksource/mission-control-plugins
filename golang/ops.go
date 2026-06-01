@@ -22,6 +22,8 @@ type SessionCreateParams struct {
 	Pod           string `json:"pod,omitempty"`
 	Container     string `json:"container,omitempty"`
 	PID           int    `json:"pid,omitempty"`
+	UseGops       *bool  `json:"useGops,omitempty"`
+	UsePprof      *bool  `json:"usePprof,omitempty"`
 	GopsPort      int    `json:"gopsPort,omitempty"`
 	PprofPort     int    `json:"pprofPort,omitempty"`
 	PprofBasePath string `json:"pprofBasePath,omitempty"`
@@ -136,13 +138,18 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 	}
 
 	var diagnostics []string
+	useGops := params.UseGops == nil || *params.UseGops
+	usePprof := params.UsePprof == nil || *params.UsePprof
 	gopsPort := params.GopsPort
 	pid := params.PID
+	if !useGops {
+		diagnostics = append(diagnostics, "gops disabled by request")
+	}
 	dirs := append([]string{}, p.settings.GopsConfigDirs...)
 	if params.GopsConfigDir != "" {
 		dirs = append([]string{params.GopsConfigDir}, dirs...)
 	}
-	if gopsPort == 0 {
+	if useGops && gopsPort == 0 {
 		discoverCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 		procs, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
@@ -159,9 +166,12 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		}
 	}
 
-	gopsPorts := gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPorts)
-	if gopsPort == 0 && len(gopsPorts) > 0 {
-		diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports: %s", formatPorts(gopsPorts)))
+	gopsPorts := []int{}
+	if useGops {
+		gopsPorts = gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPorts)
+		if gopsPort == 0 && len(gopsPorts) > 0 {
+			diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports: %s", formatPorts(gopsPorts)))
+		}
 	}
 
 	pprofPort := params.PprofPort
@@ -169,9 +179,14 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 	if params.PprofBasePath != "" {
 		pprofBase = normalizePprofBase(params.PprofBasePath)
 	}
-	pprofPorts := pprofCandidatePorts(pprofPort, p.settings.DefaultPprofPort, pod.ContainerPorts[container])
-	if pprofPort == 0 && len(pod.ContainerPorts[container]) > 0 {
-		diagnostics = append(diagnostics, fmt.Sprintf("trying %s on declared container ports: %s", pprofBase, formatPorts(pod.ContainerPorts[container])))
+	pprofPorts := []int{}
+	if usePprof {
+		pprofPorts = pprofCandidatePorts(pprofPort, p.settings.DefaultPprofPort, pod.ContainerPorts[container])
+		if pprofPort == 0 && len(pod.ContainerPorts[container]) > 0 {
+			diagnostics = append(diagnostics, fmt.Sprintf("trying %s on declared container ports: %s", pprofBase, formatPorts(pod.ContainerPorts[container])))
+		}
+	} else {
+		diagnostics = append(diagnostics, "pprof disabled by request")
 	}
 
 	var gopsCandidates []portCandidate
