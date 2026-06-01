@@ -5,7 +5,7 @@ import { Download, ExternalLink, FileText, Flame, Play, Square, TerminalSquare }
 import { Button, SplitPane } from "@flanksource/clicky-ui";
 import { callOp, pluginURL, type GolangSession, type ProfileKind, type ProfileRun, type ProfileSource } from "../api";
 import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, RunBadge } from "./ui";
-import { errorMessage, fmtBytes, fmtDuration } from "./utils";
+import { fmtBytes, fmtDuration } from "./utils";
 
 const PROFILE_KINDS: ProfileKind[] = ["cpu", "trace", "heap"];
 const PROFILE_SOURCES: ProfileSource[] = ["auto", "pprof", "gops"];
@@ -170,13 +170,11 @@ function ProfilerOutputView({ session, run }: { session: GolangSession; run: Pro
             </a>
           )}
           {run.state === "completed" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => downloadBlob(downloadURL, downloadName).catch((err) => alert(errorMessage(err)))}
-            >
-              <Download className="h-4 w-4" />
-              Download
+            <Button asChild size="sm" variant="outline">
+              <a href={downloadURL} download={downloadName}>
+                <Download className="h-4 w-4" />
+                Download
+              </a>
             </Button>
           )}
         </div>
@@ -281,33 +279,6 @@ function ProfilerOutputOption({
       {label}
     </button>
   );
-}
-
-async function downloadBlob(url: string, fallbackName: string): Promise<void> {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  const filename = parseContentDispositionFilename(res.headers.get("Content-Disposition")) ?? fallbackName;
-  const blob = await res.blob();
-  const objectURL = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectURL;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
-}
-
-function parseContentDispositionFilename(header: string | null): string | undefined {
-  if (!header) return undefined;
-  const utf8 = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-  if (utf8?.[1]) {
-    try { return decodeURIComponent(utf8[1].trim()); } catch { /* fallthrough */ }
-  }
-  const quoted = header.match(/filename\s*=\s*"([^"]+)"/i);
-  if (quoted?.[1]) return quoted[1];
-  const bare = header.match(/filename\s*=\s*([^;]+)/i);
-  return bare?.[1]?.trim();
 }
 
 function profileDownloadName(session: GolangSession, run: ProfileRun): string {
