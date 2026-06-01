@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ExternalLink, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
 import { Button, SplitPane } from "@flanksource/clicky-ui";
 import { callOp, pluginURL, type GolangSession, type ProfileKind, type ProfileRun, type ProfileSource } from "../api";
-import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, RunBadge } from "./ui";
+import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, RunBadge, useDelayedTruthy } from "./ui";
 import { fmtBytes, fmtDuration } from "./utils";
 
 const PROFILE_KINDS: ProfileKind[] = ["cpu", "trace", "heap"];
@@ -17,11 +17,12 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
   const [selectedRunID, setSelectedRunID] = useState<string | null>(null);
   const qc = useQueryClient();
 
+  const available = session.pprofAvailable || session.gopsAvailable;
   const runsQ = useQuery({
     queryKey: ["golang", session.id, "profile-runs"],
     queryFn: () => callOp<ProfileRun[]>("profile-runs-list", { sessionId: session.id }),
-    enabled: session.pprofAvailable,
-    refetchInterval: session.pprofAvailable ? 2_000 : false,
+    enabled: available,
+    refetchInterval: available ? 2_000 : false,
   });
   const runs = runsQ.data ?? [];
   const selected = runs.find((run) => run.id === selectedRunID) ?? runs[0] ?? null;
@@ -56,7 +57,11 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
         </Field>
         <Field label="Source">
           <select className="h-8 rounded-md border bg-background px-2 text-xs" value={source} onChange={(event) => setSource((event.target as HTMLSelectElement).value as ProfileSource)}>
-            {PROFILE_SOURCES.map((item) => <option key={item} value={item}>{item}</option>)}
+            {PROFILE_SOURCES.map((item) => (
+              <option key={item} value={item} disabled={(item === "pprof" && !session.pprofAvailable) || (item === "gops" && !session.gopsAvailable)}>
+                {item}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label={durationApplies ? "Duration seconds" : "Duration"}>
@@ -121,16 +126,16 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
   );
 
   const output = <ProfilerOutputView session={session} run={selected} />;
-  const available = session.pprofAvailable;
   const loading = available && runsQ.isFetching && !runsQ.data;
   const refetching = available && runsQ.isFetching && !!runsQ.data;
+  const showRefetching = useDelayedTruthy(refetching);
   const blocked = !available || loading;
 
   return (
     <div className="relative h-full min-h-0">
-      {!available && <GopsRequiredOverlay>pprof is required to capture profiles.</GopsRequiredOverlay>}
+      {!available && <GopsRequiredOverlay>gops or pprof is required to capture profiles.</GopsRequiredOverlay>}
       {loading && <LoadingOverlay>Loading profile runs…</LoadingOverlay>}
-      {refetching && <RefetchIndicator>Refreshing profile runs…</RefetchIndicator>}
+      {showRefetching && <RefetchIndicator>Refreshing profile runs…</RefetchIndicator>}
       <div className={`h-full min-h-0 ${blocked ? "pointer-events-none blur-sm" : ""}`}>
         <SplitPane className="h-full" left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />
       </div>

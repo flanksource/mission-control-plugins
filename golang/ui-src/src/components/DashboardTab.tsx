@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ProgressBar } from "@flanksource/clicky-ui";
 import type { ComponentChildren } from "preact";
 import { callOp, type GolangSession, type RuntimeSnapshot } from "../api";
-import { ErrorText, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator } from "./ui";
+import { ErrorText, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, useDelayedTruthy } from "./ui";
 import { fmtBytes } from "./utils";
 
 const HEAP_PALETTE = ["bg-emerald-500", "bg-sky-500", "bg-amber-500", "bg-violet-500"];
@@ -20,13 +20,14 @@ export function DashboardTab({ session }: { session: GolangSession }) {
   const parsed = useMemo(() => parseRuntime(runtimeQ.data), [runtimeQ.data]);
   const loading = session.gopsAvailable && runtimeQ.isFetching && !runtimeQ.data;
   const refetching = session.gopsAvailable && runtimeQ.isFetching && !!runtimeQ.data;
+  const showRefetching = useDelayedTruthy(refetching);
   const blocked = !session.gopsAvailable || loading;
 
   return (
     <div className="relative h-full min-h-0">
       {!session.gopsAvailable && <GopsRequiredOverlay>gops is required for the runtime dashboard.</GopsRequiredOverlay>}
       {loading && <LoadingOverlay>Loading runtime data…</LoadingOverlay>}
-      {refetching && <RefetchIndicator>Refreshing runtime data…</RefetchIndicator>}
+      {showRefetching && <RefetchIndicator>Refreshing runtime data…</RefetchIndicator>}
       <div className={`flex h-full min-h-0 flex-col gap-4 overflow-auto p-4 ${blocked ? "pointer-events-none blur-sm" : ""}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Runtime Dashboard</h3>

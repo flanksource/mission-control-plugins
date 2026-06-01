@@ -1,4 +1,4 @@
 import type { TargetOption } from "../api";
 
 export type ActiveTab = "dashboard" | "goroutines" | "profiler";
-export type SessionStartTarget = TargetOption & { gopsPort?: number; pprofPort?: number };
+export type SessionStartTarget = TargetOption & { useGops?: boolean; usePprof?: boolean; gopsPort?: number; pprofPort?: number };

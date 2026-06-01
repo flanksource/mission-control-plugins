@@ -2,7 +2,7 @@ import { useMemo, useState } from "preact/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, countGoroutinesByState, parseGoroutineDump, type ParsedGoroutine } from "@flanksource/clicky-ui";
 import { callOp, type GolangSession, type GoroutineSnapshot } from "../api";
-import { Empty, ErrorText, GopsRequiredOverlay, LoadingOverlay, RefetchIndicator } from "./ui";
+import { Empty, ErrorText, GopsRequiredOverlay, LoadingOverlay, RefetchIndicator, useDelayedTruthy } from "./ui";
 
 export function GoroutinesTab({ session }: { session: GolangSession }) {
   const [query, setQuery] = useState("");
@@ -20,13 +20,14 @@ export function GoroutinesTab({ session }: { session: GolangSession }) {
   const counts = useMemo(() => countGoroutinesByState(parsed), [parsed]);
   const loading = session.gopsAvailable && goroutinesQ.isFetching && !goroutinesQ.data;
   const refetching = session.gopsAvailable && goroutinesQ.isFetching && !!goroutinesQ.data;
+  const showRefetching = useDelayedTruthy(refetching);
   const blocked = !session.gopsAvailable || loading;
 
   return (
     <div className="relative h-full min-h-0">
       {!session.gopsAvailable && <GopsRequiredOverlay>gops is required to inspect goroutines.</GopsRequiredOverlay>}
       {loading && <LoadingOverlay>Loading goroutines…</LoadingOverlay>}
-      {refetching && <RefetchIndicator>Refreshing goroutines…</RefetchIndicator>}
+      {showRefetching && <RefetchIndicator>Refreshing goroutines…</RefetchIndicator>}
       <div className={`flex h-full min-h-0 flex-col gap-3 p-4 ${blocked ? "pointer-events-none blur-sm" : ""}`}>
       <div className="flex items-center justify-between gap-3">
         <div>

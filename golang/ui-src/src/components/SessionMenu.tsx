@@ -6,7 +6,7 @@ import { Field } from "./ui";
 import type { SessionStartTarget } from "./types";
 import { errorMessage, parsePortInput, sessionMatchesTarget } from "./utils";
 
-const DEFAULT_GOPS_PORT = 6060;
+const DEFAULT_GOPS_PORT = 6061;
 const DEFAULT_PPROF_PORT = 6060;
 
 type SessionMenuProps = {
@@ -39,6 +39,8 @@ export function SessionMenu({
   onDeleteSession,
 }: SessionMenuProps) {
   const [open, setOpen] = useState(false);
+  const [useGops, setUseGops] = useState(true);
+  const [usePprof, setUsePprof] = useState(true);
   const [gopsPort, setGopsPort] = useState(String(DEFAULT_GOPS_PORT));
   const [pprofPort, setPprofPort] = useState(String(DEFAULT_PPROF_PORT));
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -71,28 +73,30 @@ export function SessionMenu({
             <span className="text-[11px] font-semibold uppercase text-muted-foreground">Targets</span>
             <Badge variant="outline" size="sm">{targets.length}</Badge>
           </div>
-          <div className="grid grid-cols-2 gap-2 border-y px-2 py-2">
-            <Field label="gops port">
-              <input
-                className="h-8 rounded-md border bg-background px-2 text-xs"
-                type="number"
-                min={1}
-                max={65535}
-                value={gopsPort}
-                onInput={(event) => setGopsPort((event.target as HTMLInputElement).value)}
+          {selectedSession ? (
+            <div className="border-y px-2 py-2 text-xs text-muted-foreground">
+              A diagnostics session is already running for the selected target. Stop it before starting another session.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 border-y px-2 py-2">
+              <EndpointOption
+                label="Use gops"
+                checked={useGops}
+                onChecked={setUseGops}
+                port={gopsPort}
+                onPort={setGopsPort}
+                help="Enable only if the app imports github.com/google/gops/agent."
               />
-            </Field>
-            <Field label="pprof port">
-              <input
-                className="h-8 rounded-md border bg-background px-2 text-xs"
-                type="number"
-                min={1}
-                max={65535}
-                value={pprofPort}
-                onInput={(event) => setPprofPort((event.target as HTMLInputElement).value)}
+              <EndpointOption
+                label="Use pprof"
+                checked={usePprof}
+                onChecked={setUsePprof}
+                port={pprofPort}
+                onPort={setPprofPort}
+                help="Enable if net/http/pprof is exposed on the app."
               />
-            </Field>
-          </div>
+            </div>
+          )}
           {sessionsLoading || targetsLoading ? (
             <div className="px-2 py-3 text-xs text-muted-foreground">Loading targets…</div>
           ) : targetsError ? (
@@ -145,12 +149,16 @@ export function SessionMenu({
                         size="sm"
                         variant="secondary"
                         loading={creating}
+                        disabled={!useGops && !usePprof}
+                        title={!useGops && !usePprof ? "Enable gops or pprof to start a session" : undefined}
                         onClick={() => {
                           onSelectTarget(target);
                           onStartSession({
                             ...target,
-                            gopsPort: parsePortInput(gopsPort),
-                            pprofPort: parsePortInput(pprofPort),
+                            useGops,
+                            usePprof,
+                            gopsPort: useGops ? parsePortInput(gopsPort) : undefined,
+                            pprofPort: usePprof ? parsePortInput(pprofPort) : undefined,
                           });
                           setOpen(false);
                         }}
@@ -165,6 +173,49 @@ export function SessionMenu({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function EndpointOption({
+  label,
+  checked,
+  onChecked,
+  port,
+  onPort,
+  help,
+}: {
+  label: string;
+  checked: boolean;
+  onChecked: (checked: boolean) => void;
+  port: string;
+  onPort: (port: string) => void;
+  help: string;
+}) {
+  return (
+    <div className={`rounded-md border p-2 ${checked ? "bg-card" : "bg-muted/30"}`}>
+      <label className="flex items-center gap-2 text-xs font-medium">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChecked((event.target as HTMLInputElement).checked)}
+        />
+        {label}
+      </label>
+      <div className="mt-2">
+        <Field label="port">
+          <input
+            className="h-8 w-full rounded-md border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            type="number"
+            min={1}
+            max={65535}
+            value={port}
+            disabled={!checked}
+            onInput={(event) => onPort((event.target as HTMLInputElement).value)}
+          />
+        </Field>
+      </div>
+      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{help}</p>
     </div>
   );
 }
