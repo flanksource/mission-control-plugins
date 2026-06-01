@@ -11,6 +11,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -113,6 +114,9 @@ func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if subPath != "" {
+			if p.serveStaticProfileView(w, r, run, subPath) {
+				return
+			}
 			p.proxyProfileViewer(w, r, sess, run, subPath)
 			return
 		}
@@ -138,6 +142,78 @@ func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
 	writeProfileDownload(w, sess.ID, kind, kind, source, data)
 }
 
+func (p *GolangPlugin) serveStaticProfileView(w http.ResponseWriter, r *http.Request, run *ProfileRun, subPath string) bool {
+	view := strings.Trim(strings.TrimPrefix(subPath, "ui/"), "/")
+	sampleIndex := r.URL.Query().Get("si")
+	if sampleIndex == "" {
+		sampleIndex = r.URL.Query().Get("sample_index")
+	}
+	switch view {
+	case "flamegraph", "graph":
+		out, err := renderPprofCLI(r.Context(), run, "svg", sampleIndex)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return true
+		}
+		w.Header().Set("Content-Type", "image/svg+xml")
+		_, _ = w.Write(out)
+		return true
+	case "top":
+		out, err := renderPprofCLI(r.Context(), run, "top", sampleIndex)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return true
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write(out)
+		return true
+	default:
+		return false
+	}
+}
+
+func renderPprofCLI(ctx context.Context, run *ProfileRun, format, sampleIndex string) ([]byte, error) {
+	snap := run.Snapshot()
+	if snap.Kind == "trace" {
+		return nil, fmt.Errorf("trace profiles cannot be rendered with go tool pprof")
+	}
+	data := run.Data()
+	if len(data) == 0 {
+		return nil, fmt.Errorf("profile run has no data")
+	}
+	tmp, err := os.CreateTemp("", "golang-profile-*."+profileExtension(snap.Kind))
+	if err != nil {
+		return nil, fmt.Errorf("create temp profile: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return nil, fmt.Errorf("write temp profile: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return nil, fmt.Errorf("close temp profile: %w", err)
+	}
+
+	args := []string{"tool", "pprof", "-" + format}
+	if sampleIndex != "" {
+		args = append(args, "-sample_index="+sampleIndex)
+	}
+	args = append(args, tmpPath)
+	cmd := exec.CommandContext(ctx, "go", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return nil, fmt.Errorf("go tool pprof -%s: %w: %s", format, err, msg)
+		}
+		return nil, fmt.Errorf("go tool pprof -%s: %w", format, err)
+	}
+	return stdout.Bytes(), nil
+}
+
 func (p *GolangPlugin) proxyProfileViewer(w http.ResponseWriter, r *http.Request, _ *Session, run *ProfileRun, subPath string) {
 	if p.viewers == nil {
 		http.Error(w, "profile viewer registry is not initialised", http.StatusInternalServerError)
@@ -156,7 +232,7 @@ func (p *GolangPlugin) proxyProfileViewer(w http.ResponseWriter, r *http.Request
 	proxy.ServeHTTP(w, r)
 }
 
-var pprofHrefPattern = regexp.MustCompile(`href=(['"])([^'"]+)['"]`)
+var pprofHrefPattern = regexp.MustCompile(`href=(["'])([^"']+)["']`)
 
 func rewritePprofResponse(resp *http.Response, externalURL *url.URL, sess *Session) error {
 	if loc := resp.Header.Get("Location"); loc != "" {
