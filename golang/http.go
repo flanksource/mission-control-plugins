@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -44,45 +43,6 @@ func (p *GolangPlugin) httpInvoke(operation string, handler func(context.Context
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-}
-
-func (p *GolangPlugin) httpProxyPprof(w http.ResponseWriter, r *http.Request) {
-	externalURL := *r.URL
-	rest := operationSubpath(r, OpHTTPPprof)
-	id, tail, hasTail := strings.Cut(rest, "/")
-	if id == "" {
-		http.Error(w, "missing session id", http.StatusBadRequest)
-		return
-	}
-	sess, ok := p.sessions.Get(id)
-	if !ok {
-		http.Error(w, "session not found", http.StatusNotFound)
-		return
-	}
-	if !sessionMatchesConfig(sess, configItemIDFromRequest(r)) {
-		http.Error(w, "session does not belong to the current config item", http.StatusForbidden)
-		return
-	}
-	if !sess.PprofAvailable || sess.PprofLocal == 0 {
-		http.Error(w, "pprof is not available for this session", http.StatusBadRequest)
-		return
-	}
-	target, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", sess.PprofLocal))
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ErrorLog = log.New(os.Stderr, "[WARN] golang pprof proxy: ", 0)
-	proxy.ModifyResponse = func(resp *http.Response) error {
-		return rewritePprofResponse(resp, &externalURL, sess)
-	}
-	base := strings.TrimRight(normalizePprofBase(sess.PprofBasePath), "/")
-	r.URL.Path = base
-	if !hasTail || tail == "" {
-		r.URL.Path += "/"
-	} else {
-		r.URL.Path += "/" + tail
-	}
-	r.URL.RawPath = ""
-	r.URL.RawQuery = proxiedPprofQuery(r.URL.Query())
-	proxy.ServeHTTP(w, r)
 }
 
 func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
@@ -230,95 +190,6 @@ func (p *GolangPlugin) proxyProfileViewer(w http.ResponseWriter, r *http.Request
 	r.URL.Path = "/" + strings.TrimLeft(subPath, "/")
 	r.URL.RawPath = ""
 	proxy.ServeHTTP(w, r)
-}
-
-var pprofHrefPattern = regexp.MustCompile(`href=(["'])([^"']+)["']`)
-
-func rewritePprofResponse(resp *http.Response, externalURL *url.URL, sess *Session) error {
-	if loc := resp.Header.Get("Location"); loc != "" {
-		if rewritten := rewritePprofURL(loc, externalURL, sess); rewritten != "" {
-			resp.Header.Set("Location", rewritten)
-		}
-	}
-	if resp.Body == nil || !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		return nil
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
-	rewritten := pprofHrefPattern.ReplaceAllFunc(body, func(match []byte) []byte {
-		parts := pprofHrefPattern.FindSubmatch(match)
-		if len(parts) != 3 {
-			return match
-		}
-		rewritten := rewritePprofURL(string(parts[2]), externalURL, sess)
-		if rewritten == "" {
-			return match
-		}
-		quote := parts[1]
-		return []byte("href=" + string(quote) + rewritten + string(quote))
-	})
-	resp.Body = io.NopCloser(bytes.NewReader(rewritten))
-	resp.ContentLength = int64(len(rewritten))
-	resp.Header.Set("Content-Length", fmt.Sprint(len(rewritten)))
-	return nil
-}
-
-func rewritePprofURL(raw string, externalURL *url.URL, sess *Session) string {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "" || u.Host != "" || strings.HasPrefix(raw, "#") {
-		return ""
-	}
-	base := strings.TrimRight(normalizePprofBase(sess.PprofBasePath), "/")
-	path := u.Path
-	if path == "" || path == "." {
-		path = "/"
-	}
-	if strings.HasPrefix(path, base+"/") {
-		path = strings.TrimPrefix(path, base+"/")
-	} else if path == base {
-		path = ""
-	} else {
-		path = strings.TrimLeft(path, "/")
-	}
-	q := url.Values{}
-	if configID := externalURL.Query().Get("config_id"); configID != "" {
-		q.Set("config_id", configID)
-	}
-	pprofPath := sess.ID
-	if path == "" || path == "/" {
-		pprofPath += "/"
-	} else {
-		pprofPath += "/" + path
-	}
-	q.Set("path", pprofPath)
-	for key, values := range u.Query() {
-		for _, value := range values {
-			q.Add(key, value)
-		}
-	}
-	out := "?" + q.Encode()
-	if u.RawFragment != "" {
-		out += "#" + u.RawFragment
-	} else if u.Fragment != "" {
-		out += "#" + url.QueryEscape(u.Fragment)
-	}
-	return out
-}
-
-func proxiedPprofQuery(values url.Values) string {
-	out := url.Values{}
-	for key, vals := range values {
-		if key == "config_id" || key == "path" {
-			continue
-		}
-		for _, value := range vals {
-			out.Add(key, value)
-		}
-	}
-	return out.Encode()
 }
 
 func configItemIDFromRequest(r *http.Request) string {

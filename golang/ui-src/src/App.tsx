@@ -10,7 +10,6 @@ import {
 } from "./api";
 import { DashboardTab } from "./components/DashboardTab";
 import { GoroutinesTab } from "./components/GoroutinesTab";
-import { PprofTab } from "./components/PprofTab";
 import { ProfilerTab } from "./components/ProfilerTab";
 import { SessionMenu } from "./components/SessionMenu";
 import { SessionSummary } from "./components/SessionSummary";
@@ -157,7 +156,6 @@ export function App() {
             <TabButton tab="dashboard" current={tab} onClick={setTab}>Dashboard</TabButton>
             <TabButton tab="goroutines" current={tab} onClick={setTab}>Goroutines</TabButton>
             <TabButton tab="profiler" current={tab} onClick={setTab}>Profiler</TabButton>
-            <TabButton tab="pprof" current={tab} onClick={setTab}>Pprof</TabButton>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             {startSession.error && <div className="p-3"><ErrorText error={startSession.error} /></div>}
@@ -166,7 +164,6 @@ export function App() {
                 {tab === "dashboard" && <DashboardTab session={selectedSession} />}
                 {tab === "goroutines" && <GoroutinesTab session={selectedSession} />}
                 {tab === "profiler" && <ProfilerTab session={selectedSession} />}
-                {tab === "pprof" && <PprofTab session={selectedSession} />}
               </>
             ) : (
               <Empty>Select a target and start a session.</Empty>

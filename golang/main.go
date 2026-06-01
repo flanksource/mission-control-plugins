@@ -15,6 +15,8 @@ import (
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
+const pluginName = "golang"
+
 const (
 	OpPodsList        = "pods-list"
 	OpSessionsList    = "sessions-list"
@@ -27,9 +29,7 @@ const (
 	OpProfileStatus   = "profile-status"
 	OpProfileStop     = "profile-stop"
 	OpProfileRunsList = "profile-runs-list"
-	OpHTTPPprof       = "pprof"
 	OpHTTPProfiles    = "profiles"
-	pluginName        = "golang"
 )
 
 //go:generate go run ./internal/gen-checksum
@@ -144,8 +144,6 @@ func (p *GolangPlugin) Operations() []sdk.Operation {
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
 		switch d.Name {
-		case OpHTTPPprof:
-			out = append(out, sdk.Operation{Def: d, HTTPHandler: http.HandlerFunc(p.httpProxyPprof)})
 		case OpHTTPProfiles:
 			out = append(out, sdk.Operation{Def: d, HTTPHandler: http.HandlerFunc(p.httpProfile)})
 		default:
@@ -187,8 +185,7 @@ func operationDefs() []*pluginpb.OperationDef {
 		mk(OpProfileStatus, "Read a profile run status."),
 		mk(OpProfileStop, "Stop a running profile run."),
 		mk(OpProfileRunsList, "List recent profile runs for a diagnostics session."),
-		mkHTTP(OpHTTPPprof, "Proxy the selected session's pprof HTTP endpoint."),
-		mkHTTP(OpHTTPProfiles, "Download captured profiles or proxy the interactive pprof viewer."),
+		mkHTTP(OpHTTPProfiles, "Download captured profiles or render captured profile output."),
 	}
 }
 
