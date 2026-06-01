@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ExternalLink, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
 import { Button, SplitPane } from "@flanksource/clicky-ui";
 import { callOp, pluginURL, type GolangSession, type ProfileKind, type ProfileRun, type ProfileSource } from "../api";
-import { Empty, ErrorText, Field, InfoCard, KV, RunBadge } from "./ui";
+import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, RunBadge } from "./ui";
 import { errorMessage, fmtBytes, fmtDuration } from "./utils";
 
 const PROFILE_KINDS: ProfileKind[] = ["cpu", "trace", "heap"];
@@ -115,8 +115,16 @@ export function ProfilerTab({ session }: { session: GolangSession }) {
   );
 
   const output = <ProfilerOutputView session={session} run={selected} />;
+  const available = session.gopsAvailable || session.pprofAvailable;
 
-  return <SplitPane left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />;
+  return (
+    <div className="relative h-full min-h-0">
+      {!available && <GopsRequiredOverlay>gops or pprof is required to capture profiles.</GopsRequiredOverlay>}
+      <div className={`h-full min-h-0 ${!available ? "pointer-events-none blur-sm" : ""}`}>
+        <SplitPane left={controls} right={output} defaultSplit={38} minLeft={28} minRight={36} />
+      </div>
+    </div>
+  );
 }
 
 type ProfilerView = "flamegraph" | "top" | "raw";

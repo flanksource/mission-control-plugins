@@ -1,13 +1,14 @@
 import { FileText } from "lucide-react";
 import { Button } from "@flanksource/clicky-ui";
 import { pluginURL, type GolangSession } from "../api";
-import { Empty } from "./ui";
+import { GopsRequiredOverlay } from "./ui";
 
 export function PprofTab({ session }: { session: GolangSession }) {
-  if (!session.pprofAvailable) return <Empty>Pprof is not available for this session.</Empty>;
   const url = pluginURL(`pprof/${session.id}/`);
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 p-4">
+    <div className="relative h-full min-h-0">
+      {!session.pprofAvailable && <GopsRequiredOverlay>pprof is required for this view.</GopsRequiredOverlay>}
+      <div className={`flex h-full min-h-0 flex-col gap-3 p-4 ${!session.pprofAvailable ? "pointer-events-none blur-sm" : ""}`}>
       <div>
         <Button asChild size="sm" variant="outline">
           <a href={url} target="_blank" rel="noreferrer">
@@ -16,7 +17,12 @@ export function PprofTab({ session }: { session: GolangSession }) {
           </a>
         </Button>
       </div>
-      <iframe title="pprof" src={url} className="min-h-0 flex-1 rounded-md border bg-background" />
+      {session.pprofAvailable ? (
+        <iframe title="pprof" src={url} className="min-h-0 flex-1 rounded-md border bg-background" />
+      ) : (
+        <div className="min-h-0 flex-1 rounded-md border bg-muted/30" />
+      )}
+      </div>
     </div>
   );
 }

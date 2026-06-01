@@ -46,6 +46,7 @@ export interface GoroutineSnapshot {
   sessionId: string;
   source: string;
   dump: string;
+  error?: string;
 }
 
 export type ProfileKind = "cpu" | "trace" | "heap";

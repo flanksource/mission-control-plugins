@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ProgressBar } from "@flanksource/clicky-ui";
 import type { ComponentChildren } from "preact";
 import { callOp, type GolangSession, type RuntimeSnapshot } from "../api";
-import { ErrorText, InfoCard, KV } from "./ui";
+import { ErrorText, GopsRequiredOverlay, InfoCard, KV } from "./ui";
 import { fmtBytes } from "./utils";
 
 const HEAP_PALETTE = ["bg-emerald-500", "bg-sky-500", "bg-amber-500", "bg-violet-500"];
@@ -20,7 +20,9 @@ export function DashboardTab({ session }: { session: GolangSession }) {
   const parsed = useMemo(() => parseRuntime(runtimeQ.data), [runtimeQ.data]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-auto p-4">
+    <div className="relative h-full min-h-0">
+      {!session.gopsAvailable && <GopsRequiredOverlay>gops is required for the runtime dashboard.</GopsRequiredOverlay>}
+      <div className={`flex h-full min-h-0 flex-col gap-4 overflow-auto p-4 ${!session.gopsAvailable ? "pointer-events-none blur-sm" : ""}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Runtime Dashboard</h3>
         <span className="text-xs text-muted-foreground">
@@ -92,14 +94,16 @@ export function DashboardTab({ session }: { session: GolangSession }) {
 
       {session.diagnostics?.length ? (
         <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Endpoint Discovery</h4>
+          <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Diagnostics</h4>
           <pre className="max-h-28 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">
             {session.diagnostics.join("\n")}
           </pre>
         </section>
       ) : null}
 
+      {runtimeQ.data?.error ? <ErrorText error={runtimeQ.data.error} /> : null}
       {runtimeQ.error ? <ErrorText error={runtimeQ.error} /> : null}
+      </div>
     </div>
   );
 }

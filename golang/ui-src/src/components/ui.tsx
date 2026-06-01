@@ -56,6 +56,16 @@ export function ErrorText({ error }: { error: unknown }) {
   return <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{errorMessage(error)}</div>;
 }
 
+export function GopsRequiredOverlay({ children = "gops is required for this view." }: { children?: ComponentChildren }) {
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 p-6 backdrop-blur-[2px]">
+      <div className="rounded-md border bg-card px-4 py-3 text-center text-sm font-medium shadow-sm">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function RunBadge({ run }: { run: { state: string } }) {
   const tone = run.state === "completed" ? "success" : run.state === "failed" ? "danger" : run.state === "stopped" ? "warning" : "info";
   return <Badge tone={tone} variant="soft" size="sm">{run.state}</Badge>;

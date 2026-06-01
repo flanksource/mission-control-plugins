@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	golangk8s "github.com/flanksource/mission-control-plugins/golang/internal/k8s"
+	"k8s.io/client-go/rest"
 )
 
 type SessionCreateParams struct {
@@ -67,6 +69,7 @@ type GoroutineSnapshot struct {
 	SessionID string `json:"sessionId"`
 	Source    string `json:"source"`
 	Dump      string `json:"dump"`
+	Error     string `json:"error,omitempty"`
 }
 
 type ProfileResult struct {
@@ -171,7 +174,6 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		diagnostics = append(diagnostics, fmt.Sprintf("trying %s on declared container ports: %s", pprofBase, formatPorts(pod.ContainerPorts[container])))
 	}
 
-	var mappings []golangk8s.PortMapping
 	var gopsCandidates []portCandidate
 	for i, remote := range gopsPorts {
 		preferred := 0
@@ -183,7 +185,6 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 			return nil, err
 		}
 		gopsCandidates = append(gopsCandidates, portCandidate{Remote: remote, Local: local, Source: "gops"})
-		mappings = append(mappings, golangk8s.PortMapping{LocalPort: local, RemotePort: remote})
 	}
 	var pprofCandidates []portCandidate
 	for i, remote := range pprofPorts {
@@ -196,45 +197,47 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 			return nil, err
 		}
 		pprofCandidates = append(pprofCandidates, portCandidate{Remote: remote, Local: local, Source: "pprof"})
-		mappings = append(mappings, golangk8s.PortMapping{LocalPort: local, RemotePort: remote})
 	}
-	if len(mappings) == 0 {
-		return nil, fmt.Errorf("no diagnostics endpoint candidates found; configure gopsPort, pprofPort, default plugin ports, a readable gopsConfigDir, or containerPorts")
+	if len(gopsCandidates) == 0 && len(pprofCandidates) == 0 {
+		diagnostics = append(diagnostics, "no diagnostics endpoint candidates found; configure gopsPort, pprofPort, default plugin ports, a readable gopsConfigDir, or containerPorts")
 	}
 
-	startCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	fwd, ready, err := golangk8s.StartPortForward(restCfg, pod.Namespace, pod.Name, mappings, io.Discard, io.Discard)
-	if err != nil {
-		return nil, fmt.Errorf("port-forward: %w", err)
+	var forwards []*golangk8s.Forwarder
+	closeForwards := func() error {
+		var errs []error
+		for _, fwd := range forwards {
+			if err := fwd.Close(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
 	}
-	if err := fwd.Ready(startCtx, ready); err != nil {
-		_ = fwd.Close()
-		return nil, fmt.Errorf("port-forward not ready: %w", err)
-	}
-	sess := NewSession(req.ConfigItemID, pod.Namespace, target.Kind, target.Name, pod.Name, container, func() error { return fwd.Close() })
+	sess := NewSession(req.ConfigItemID, pod.Namespace, target.Kind, target.Name, pod.Name, container, closeForwards)
 	sess.PID = pid
-	if match, ok := firstWorkingGops(ctx, gopsCandidates); ok {
+	sess.PprofBasePath = pprofBase
+	sess.Diagnostics = diagnostics
+
+	if match, fwd, ok := firstWorkingForward(ctx, restCfg, pod.Namespace, pod.Name, gopsCandidates, func(ctx context.Context, port int) bool {
+		return probeGops(ctx, port)
+	}); ok {
+		forwards = append(forwards, fwd)
 		sess.GopsRemote = match.Remote
 		sess.GopsLocal = match.Local
 		sess.GopsAvailable = true
 	}
-	if match, ok := firstWorkingPprof(ctx, pprofCandidates, pprofBase); ok {
+	if match, fwd, ok := firstWorkingForward(ctx, restCfg, pod.Namespace, pod.Name, pprofCandidates, func(ctx context.Context, port int) bool {
+		return probePprof(ctx, port, pprofBase)
+	}); ok {
+		forwards = append(forwards, fwd)
 		sess.PprofRemote = match.Remote
 		sess.PprofLocal = match.Local
 		sess.PprofAvailable = true
 	}
-	sess.PprofBasePath = pprofBase
-	sess.Diagnostics = diagnostics
 	if len(gopsCandidates) > 0 && !sess.GopsAvailable {
 		sess.Diagnostics = append(sess.Diagnostics, fmt.Sprintf("no gops agent responded on candidate ports: %s", formatCandidatePorts(gopsCandidates)))
 	}
 	if len(pprofCandidates) > 0 && !sess.PprofAvailable {
 		sess.Diagnostics = append(sess.Diagnostics, fmt.Sprintf("no pprof index responded at %s on candidate ports: %s", pprofBase, formatCandidatePorts(pprofCandidates)))
-	}
-	if !sess.GopsAvailable && !sess.PprofAvailable {
-		_ = fwd.Close()
-		return nil, fmt.Errorf("no diagnostics endpoint responded; %s", strings.Join(sess.Diagnostics, "; "))
 	}
 	p.sessions.Add(sess)
 	return sess.Snapshot(), nil
@@ -296,15 +299,37 @@ func (p *GolangPlugin) runtimeSnapshot(ctx context.Context, req sdk.InvokeCtx) (
 	if err != nil {
 		return nil, err
 	}
+	out := RuntimeSnapshot{SessionID: sess.ID}
 	if !sess.GopsAvailable {
-		return nil, fmt.Errorf("session %s has no reachable gops agent", sess.ID)
+		out.Error = fmt.Sprintf("session %s has no reachable gops agent", sess.ID)
+		return out, nil
 	}
 	client := GopsClient{Addr: gopsAddr(sess), Timeout: 10 * time.Second}
-	out := RuntimeSnapshot{SessionID: sess.ID}
-	out.Version, _ = client.Version(ctx)
-	out.Stats, _ = client.Stats(ctx)
-	out.MemStats, _ = client.MemStats(ctx)
-	if out.Version == "" && out.Stats == "" && out.MemStats == "" {
+	var errs []string
+
+	version, err := client.Version(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("version: %v", err))
+	} else {
+		out.Version = version
+	}
+	stats, err := client.Stats(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("stats: %v", err))
+	} else {
+		out.Stats = stats
+	}
+	memStats, err := client.MemStats(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("memstats: %v", err))
+	} else {
+		out.MemStats = memStats
+	}
+
+	if len(errs) > 0 {
+		out.Error = "gops runtime errors: " + strings.Join(errs, "; ")
+	}
+	if out.Version == "" && out.Stats == "" && out.MemStats == "" && out.Error == "" {
 		out.Error = "gops agent returned no runtime data"
 	}
 	return out, nil
@@ -318,18 +343,18 @@ func (p *GolangPlugin) goroutines(ctx context.Context, req sdk.InvokeCtx) (any, 
 	if sess.GopsAvailable {
 		dump, err := (GopsClient{Addr: gopsAddr(sess), Timeout: 15 * time.Second}).Stack(ctx)
 		if err != nil {
-			return nil, err
+			return GoroutineSnapshot{SessionID: sess.ID, Source: "gops", Error: fmt.Sprintf("gops goroutine error: %v", err)}, nil
 		}
 		return GoroutineSnapshot{SessionID: sess.ID, Source: "gops", Dump: dump}, nil
 	}
 	if sess.PprofAvailable {
 		body, err := getPprof(ctx, sess, "goroutine?debug=2")
 		if err != nil {
-			return nil, err
+			return GoroutineSnapshot{SessionID: sess.ID, Source: "pprof", Error: fmt.Sprintf("pprof goroutine error: %v", err)}, nil
 		}
 		return GoroutineSnapshot{SessionID: sess.ID, Source: "pprof", Dump: string(body)}, nil
 	}
-	return nil, fmt.Errorf("session %s has neither gops nor pprof available", sess.ID)
+	return GoroutineSnapshot{SessionID: sess.ID, Error: fmt.Sprintf("session %s has neither gops nor pprof available", sess.ID)}, nil
 }
 
 func (p *GolangPlugin) profileCollect(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -511,8 +536,12 @@ func selectPodContainer(pods []RunningPod, podName, container string) (RunningPo
 func probeGops(ctx context.Context, port int) bool {
 	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := (GopsClient{Addr: fmt.Sprintf("127.0.0.1:%d", port), Timeout: 3 * time.Second}).Version(probeCtx)
-	return err == nil
+	version, err := (GopsClient{Addr: fmt.Sprintf("127.0.0.1:%d", port), Timeout: 3 * time.Second}).Version(probeCtx)
+	if err != nil {
+		return false
+	}
+	version = strings.TrimSpace(version)
+	return version != "" && strings.HasPrefix(version, "go")
 }
 
 func probePprof(ctx context.Context, port int, base string) bool {
@@ -530,22 +559,26 @@ func probePprof(ctx context.Context, port int, base string) bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
-func firstWorkingGops(ctx context.Context, candidates []portCandidate) (portCandidate, bool) {
+func firstWorkingForward(ctx context.Context, restCfg *rest.Config, namespace, pod string, candidates []portCandidate, probe func(context.Context, int) bool) (portCandidate, *golangk8s.Forwarder, bool) {
 	for _, candidate := range candidates {
-		if probeGops(ctx, candidate.Local) {
-			return candidate, true
+		startCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		fwd, ready, err := golangk8s.StartPortForward(restCfg, namespace, pod, []golangk8s.PortMapping{{LocalPort: candidate.Local, RemotePort: candidate.Remote}}, io.Discard, io.Discard)
+		if err != nil {
+			cancel()
+			continue
 		}
-	}
-	return portCandidate{}, false
-}
-
-func firstWorkingPprof(ctx context.Context, candidates []portCandidate, base string) (portCandidate, bool) {
-	for _, candidate := range candidates {
-		if probePprof(ctx, candidate.Local, base) {
-			return candidate, true
+		if err := fwd.Ready(startCtx, ready); err != nil {
+			cancel()
+			_ = fwd.Close()
+			continue
 		}
+		cancel()
+		if probe(ctx, candidate.Local) {
+			return candidate, fwd, true
+		}
+		_ = fwd.Close()
 	}
-	return portCandidate{}, false
+	return portCandidate{}, nil, false
 }
 
 func collectProfile(ctx context.Context, sess *Session, kind string, seconds int) ([]byte, string, error) {

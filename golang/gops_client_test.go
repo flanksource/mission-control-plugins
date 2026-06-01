@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net"
+	"strconv"
 
 	"github.com/google/gops/signal"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -32,5 +33,27 @@ var _ = ginkgo.Describe("GopsClient", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got).To(Equal("go1.test\n"))
 		Expect(<-done).To(Equal(signal.Version))
+	})
+
+	ginkgo.Describe("probeGops", func() {
+		ginkgo.It("rejects listeners that close without a gops version response", func() {
+			ln, err := net.Listen("tcp", "127.0.0.1:0")
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { Expect(ln.Close()).To(Succeed()) }()
+
+			go func() {
+				conn, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				_ = conn.Close()
+			}()
+
+			_, port, err := net.SplitHostPort(ln.Addr().String())
+			Expect(err).ToNot(HaveOccurred())
+			portNumber, err := strconv.Atoi(port)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(probeGops(context.Background(), portNumber)).To(BeFalse())
+		})
 	})
 })
