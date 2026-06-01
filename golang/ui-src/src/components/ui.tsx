@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { RefreshCw } from "lucide-react";
 import { Badge, Button } from "@flanksource/clicky-ui";
 import type { ActiveTab } from "./types";
 import { errorMessage } from "./utils";
@@ -62,6 +63,26 @@ export function GopsRequiredOverlay({ children = "gops is required for this view
       <div className="rounded-md border bg-card px-4 py-3 text-center text-sm font-medium shadow-sm">
         {children}
       </div>
+    </div>
+  );
+}
+
+export function LoadingOverlay({ children = "Loading…" }: { children?: ComponentChildren }) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 p-6 backdrop-blur-[2px]">
+      <div className="flex items-center gap-3 rounded-md border bg-card px-4 py-3 text-sm font-medium shadow-sm">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function RefetchIndicator({ children = "Refreshing…" }: { children?: ComponentChildren }) {
+  return (
+    <div className="pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-2 rounded-md border bg-card/95 px-3 py-1.5 text-xs font-medium shadow-sm">
+      <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
+      {children}
     </div>
   );
 }
