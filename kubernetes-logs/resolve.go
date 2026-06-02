@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,35 +67,35 @@ func resolvePods(ctx context.Context, cli kubernetes.Interface, host sdk.HostCli
 		if err != nil {
 			return nil, err
 		}
-		return podsBySelector(ctx, cli, namespace, dep.Spec.Selector.MatchLabels)
+		return podsByLabelSelector(ctx, cli, namespace, dep.Spec.Selector)
 
 	case "statefulset", "kubernetes::statefulset":
 		ss, err := cli.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		return podsBySelector(ctx, cli, namespace, ss.Spec.Selector.MatchLabels)
+		return podsByLabelSelector(ctx, cli, namespace, ss.Spec.Selector)
 
 	case "daemonset", "kubernetes::daemonset":
 		ds, err := cli.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		return podsBySelector(ctx, cli, namespace, ds.Spec.Selector.MatchLabels)
+		return podsByLabelSelector(ctx, cli, namespace, ds.Spec.Selector)
 
 	case "replicaset", "kubernetes::replicaset":
 		rs, err := cli.AppsV1().ReplicaSets(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		return podsBySelector(ctx, cli, namespace, rs.Spec.Selector.MatchLabels)
+		return podsByLabelSelector(ctx, cli, namespace, rs.Spec.Selector)
 
 	case "job", "kubernetes::job":
 		job, err := cli.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		return podsBySelector(ctx, cli, namespace, job.Spec.Selector.MatchLabels)
+		return podsByLabelSelector(ctx, cli, namespace, job.Spec.Selector)
 
 	case "cronjob", "kubernetes::cronjob":
 		// Find every Job owned by the CronJob, then every Pod owned by those Jobs.
@@ -109,7 +110,7 @@ func resolvePods(ctx context.Context, cli kubernetes.Interface, host sdk.HostCli
 			if !ownedBy(j.OwnerReferences, "CronJob", name) {
 				continue
 			}
-			ps, err := podsBySelector(ctx, cli, namespace, j.Spec.Selector.MatchLabels)
+			ps, err := podsByLabelSelector(ctx, cli, namespace, j.Spec.Selector)
 			if err != nil {
 				continue
 			}
@@ -125,9 +126,18 @@ func resolvePods(ctx context.Context, cli kubernetes.Interface, host sdk.HostCli
 // extractKubeRef pulls the Kubernetes kind / namespace / name from a config
 // item. Mission-control's Kubernetes scraper writes these as tags.
 func extractKubeRef(item *pluginpb.ConfigItem) (kind, namespace, name string) {
+	if item == nil {
+		return "", "", ""
+	}
 	kind = item.Type
 	namespace = item.Tags["namespace"]
+	if namespace == "" {
+		namespace = item.Namespace
+	}
 	name = item.Name
+	if tagName := item.Tags["name"]; tagName != "" {
+		name = tagName
+	}
 	return
 }
 
@@ -136,20 +146,48 @@ func podsByNamespace(ctx context.Context, cli kubernetes.Interface, namespace st
 	if err != nil {
 		return nil, err
 	}
-	return list.Items, nil
+	return sortPods(list.Items), nil
 }
 
 func podsBySelector(ctx context.Context, cli kubernetes.Interface, namespace string, sel map[string]string) ([]corev1.Pod, error) {
 	if len(sel) == 0 {
 		return nil, fmt.Errorf("empty selector")
 	}
+	return podsBySelectorString(ctx, cli, namespace, labels.SelectorFromSet(sel).String())
+}
+
+func podsByLabelSelector(ctx context.Context, cli kubernetes.Interface, namespace string, sel *metav1.LabelSelector) ([]corev1.Pod, error) {
+	if sel == nil {
+		return nil, fmt.Errorf("empty selector")
+	}
+	selector, err := metav1.LabelSelectorAsSelector(sel)
+	if err != nil {
+		return nil, fmt.Errorf("invalid selector: %w", err)
+	}
+	if selector.Empty() {
+		return nil, fmt.Errorf("empty selector")
+	}
+	return podsBySelectorString(ctx, cli, namespace, selector.String())
+}
+
+func podsBySelectorString(ctx context.Context, cli kubernetes.Interface, namespace, selector string) ([]corev1.Pod, error) {
 	list, err := cli.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(sel).String(),
+		LabelSelector: selector,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return list.Items, nil
+	return sortPods(list.Items), nil
+}
+
+func sortPods(pods []corev1.Pod) []corev1.Pod {
+	sort.Slice(pods, func(i, j int) bool {
+		if pods[i].Namespace != pods[j].Namespace {
+			return pods[i].Namespace < pods[j].Namespace
+		}
+		return pods[i].Name < pods[j].Name
+	})
+	return pods
 }
 
 func ownedBy(refs []metav1.OwnerReference, kind, name string) bool {

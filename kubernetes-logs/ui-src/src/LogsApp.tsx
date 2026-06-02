@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import {
   Badge,
   Button,
@@ -59,6 +59,39 @@ async function listPods(configId: string): Promise<PodRow[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
+function parseSSE(text: string): LogsTableInput[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((event) =>
+      event
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n"),
+    )
+    .filter(Boolean)
+    .map((data) => {
+      try {
+        return JSON.parse(data) as LogsTableInput;
+      } catch {
+        return data;
+      }
+    });
+}
+
+async function fetchLogs(url: string, signal: AbortSignal): Promise<LogsTableInput[]> {
+  const res = await fetchOrThrow(
+    url,
+    {
+      method: "GET",
+      credentials: "same-origin",
+      signal,
+    },
+    "logs",
+  );
+  return parseSSE(await res.text());
+}
+
 function getConfigId() {
   const params = new URLSearchParams(location.search);
   const configId = params.get("config_id");
@@ -78,11 +111,11 @@ export function LogsApp() {
   const [selectedPod, setSelectedPod] = useState<string>("");
   const [container, setContainer] = useState<string>("");
   const [tailLines, setTailLines] = useState<number>(200);
-  const [follow, setFollow] = useState<boolean>(true);
+  const [follow, setFollow] = useState<boolean>(false);
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<ErrorDiagnostics | null>(null);
   const [logs, setLogs] = useState<LogsTableInput[]>([]);
-  const streamRef = useRef<EventSource | null>(null);
+  const [reloadNonce, setReloadNonce] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,10 +154,9 @@ export function LogsApp() {
   }, [configId]);
 
   useEffect(() => {
-    streamRef.current?.close();
-    streamRef.current = null;
     setLogs([]);
     if (!selectedPod) return;
+
     const [ns, pod] = selectedPod.split("|");
     const url =
       `${PLUGIN_BASE}/proxy/logs` +
@@ -135,26 +167,62 @@ export function LogsApp() {
       `&tailLines=${tailLines}` +
       `&follow=${follow ? "true" : "false"}`;
 
-    const es = new EventSource(url, { withCredentials: true });
-    streamRef.current = es;
-    es.onmessage = (ev) => {
-      try {
-        const entry = JSON.parse(ev.data) as LogsTableInput;
-        setLogs((prev) => {
-          const next = prev.length > MAX_LOGS ? prev.slice(prev.length - MAX_LOGS) : prev;
-          return [...next, entry];
-        });
-      } catch {
-        setLogs((prev) => [...prev, ev.data]);
-      }
-    };
-    es.onerror = () => {
-      setStatus("stream closed");
-    };
+    if (follow) {
+      const es = new EventSource(url, { withCredentials: true });
+      setStatus("following");
+      setError(null);
+
+      es.onmessage = (ev) => {
+        try {
+          const entry = JSON.parse(ev.data) as LogsTableInput;
+          setLogs((prev) => {
+            const next = prev.length > MAX_LOGS ? prev.slice(prev.length - MAX_LOGS) : prev;
+            return [...next, entry];
+          });
+        } catch {
+          setLogs((prev) => [...prev, ev.data]);
+        }
+      };
+
+      es.addEventListener("error", (ev) => {
+        const data = (ev as MessageEvent).data;
+        if (data) {
+          const diagnostics = normalizeErrorDiagnostics(data) ?? { message: String(data), context: [] };
+          setError(diagnostics);
+        } else {
+          setStatus("stream closed");
+        }
+      });
+
+      return () => {
+        es.close();
+      };
+    }
+
+    const ac = new AbortController();
+    fetchLogs(url, ac.signal)
+      .then((batch) => {
+        setLogs(batch);
+        setError(null);
+        setStatus("loaded");
+      })
+      .catch((err) => {
+        if (ac.signal.aborted) return;
+        const diagnostics =
+          err instanceof HttpError
+            ? err.diagnostics
+            : normalizeErrorDiagnostics(err instanceof Error ? err.message : String(err)) ?? {
+                message: String(err),
+                context: [],
+              };
+        setError(diagnostics);
+        setStatus("");
+      });
+
     return () => {
-      es.close();
+      ac.abort();
     };
-  }, [selectedPod, configId, container, tailLines, follow]);
+  }, [selectedPod, configId, container, tailLines, follow, reloadNonce]);
 
   const podOptions = useMemo(
     () =>
@@ -213,7 +281,7 @@ export function LogsApp() {
           variant="outline"
           size="sm"
           onClick={() => {
-            setSelectedPod((p) => p);
+            setReloadNonce((n) => n + 1);
           }}
         >
           Reload
