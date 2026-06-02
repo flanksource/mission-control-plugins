@@ -88,9 +88,9 @@ func (p *KubernetesLogsPlugin) Operations() []sdk.Operation {
 		{
 			Def: &pluginpb.OperationDef{
 				Name:        "logs",
-				Description: "Stream Kubernetes pod logs as Server-Sent Events.",
+				Description: "Fetch Kubernetes pod logs, or stream new lines when follow=true.",
 				Scope:       "config",
-				ResultMime:  "text/event-stream",
+				ResultMime:  "application/json",
 				Http: []*pluginpb.HTTPBinding{
 					{Method: http.MethodGet},
 				},

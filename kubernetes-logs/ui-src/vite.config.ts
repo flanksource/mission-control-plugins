@@ -1,5 +1,5 @@
 import path from "path";
-import preact from "@preact/preset-vite";
+import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
@@ -9,17 +9,7 @@ export default defineConfig({
   // Relative base so the bundled <script src> resolves against the plugin
   // proxy path (`/api/plugins/kubernetes-logs/ui/...`) instead of the host root.
   base: "./",
-  plugins: [tailwindcss(), preact()],
-  // clicky-ui ships ESM assuming React; preact/compat aliases it for runtime
-  // and JSX. dedupe keeps a single hooks instance across clicky-ui and our app.
-  resolve: {
-    alias: {
-      react: "preact/compat",
-      "react-dom": "preact/compat",
-      "react/jsx-runtime": "preact/jsx-runtime",
-    },
-    dedupe: ["preact"],
-  },
+  plugins: [tailwindcss(), react()],
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
     "process.env": "{}",

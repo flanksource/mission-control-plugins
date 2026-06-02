@@ -9,10 +9,10 @@ matching pod.
 - Reading the catalog item (`Host.GetConfigItem`) to learn `kind / namespace / name`.
 - Resolving the Kubernetes connection for the selected catalog item (`Host.GetConnectionForConfig`).
 - An iframe UI that calls back into the host's operation API for `list-pods`,
-  then opens a Server-Sent Events stream against the plugin's own HTTP server
-  for follow-mode log tailing.
+  then calls the plugin's HTTP log endpoint for one-shot logs or follow-mode
+  streaming.
 - Both the gRPC operation contract (`tail`, `list-pods`) and a non-trivial HTTP
-  contract (`/api/logs` SSE) coexisting on the same plugin port.
+  contract (`/proxy/logs`) coexisting on the same plugin port.
 
 ## Build & install
 
@@ -41,7 +41,20 @@ curl -X POST -d '{"tailLines":50}' \
   "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/invoke/tail?config_id=<uuid>"
 ```
 
-Returns `application/clicky+json` rows of `{pod, container, line}`.
+Returns `application/clicky+json` log rows.
+
+```sh
+# One-shot HTTP logs, equivalent to kubectl logs --tail=50:
+curl \
+  "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/proxy/logs?config_id=<uuid>&namespace=default&pod=<pod>&tailLines=50&follow=false"
+
+# Follow only newly-created lines, equivalent to kubectl logs -f --tail=0:
+curl -N \
+  "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/proxy/logs?config_id=<uuid>&namespace=default&pod=<pod>&follow=true"
+```
+
+The one-shot endpoint returns `application/json`. Follow mode returns
+`text/event-stream`.
 
 ## Iframe UI
 
