@@ -76,34 +76,78 @@ body {
 
 .header-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 42px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--ig-primary) 8%, transparent), transparent 34%),
+    var(--ig-card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
-.header-card.ok {
-  border-color: var(--ig-ok-border);
-  background: var(--ig-ok-bg);
-}
-
-.header-card.warn {
-  border-color: var(--ig-warn-border);
-  background: var(--ig-warn-bg);
+.header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .brand {
   display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.brand-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  justify-content: center;
+  border: 1px solid var(--ig-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ig-muted) 52%, var(--ig-card));
+  color: var(--ig-fg);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brand h1 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: var(--ig-muted-fg);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .version {
+  flex: 0 0 auto;
   color: var(--ig-muted-fg);
-  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -112,7 +156,6 @@ body {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .gadget-card {
@@ -140,6 +183,28 @@ body {
   color: var(--ig-fg);
 }
 
+.install-button {
+  display: inline-flex;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ig-input);
+  border-radius: 999px;
+  background: var(--ig-fg);
+  color: var(--ig-bg);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.install-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ig-fg) 88%, var(--ig-bg));
+  transform: translateY(-1px);
+}
+
 .app button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -149,42 +214,81 @@ body {
   display: flex;
   min-width: 0;
   align-items: center;
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-  gap: 8px 12px;
-  overflow: hidden;
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.status-badge,
+.meta-chip {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ig-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ig-muted) 44%, var(--ig-card));
+  padding: 0 9px;
   white-space: nowrap;
 }
 
-.status-strip span {
-  overflow: hidden;
+.status-badge {
+  font-weight: 650;
+}
+
+.status-badge.ok {
+  border-color: var(--ig-ok-border);
+  background: var(--ig-ok-bg);
+  color: var(--ig-ok-fg);
+}
+
+.status-badge.warn {
+  border-color: var(--ig-warn-border);
+  background: var(--ig-warn-bg);
+  color: var(--ig-warn-fg);
+}
+
+.meta-chip {
+  max-width: min(280px, 100%);
   color: var(--ig-muted-fg);
+}
+
+.meta-chip strong {
+  overflow: hidden;
+  color: var(--ig-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
 }
 
-.header-problems, .error {
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
+.header-problems {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--ig-warn-border);
+  border-radius: 10px;
+  background: var(--ig-warn-bg);
+  color: var(--ig-warn-fg);
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
-.header-problems {
-  min-width: 120px;
-  max-width: 30vw;
+.header-problems span {
+  min-width: 0;
   overflow: hidden;
-  border: 0;
-  background: transparent;
-  color: var(--ig-warn-fg);
-  padding: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .error {
   border: 1px solid var(--ig-error-border);
+  border-radius: 6px;
   background: var(--ig-error-bg);
   color: var(--ig-error-fg);
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .workspace {
@@ -632,8 +736,17 @@ code {
 }
 
 @media (max-width: 900px) {
-  .header-card {
-    overflow-x: auto;
+  .header-main {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .brand-title-row {
+    flex-wrap: wrap;
   }
 
   .workspace {
