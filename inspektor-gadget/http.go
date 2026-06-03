@@ -29,7 +29,11 @@ func (p *InspektorGadgetPlugin) httpInvoke(operation string, handler func(contex
 			Host:         sdk.HostClientFromContext(r.Context()),
 		})
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			statusCode := http.StatusBadRequest
+			if isPermissionDenied(err) {
+				statusCode = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), statusCode)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

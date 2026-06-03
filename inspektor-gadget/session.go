@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -227,6 +228,12 @@ func (r *SessionRegistry) List() []TraceSession {
 	for _, s := range r.sessions {
 		out = append(out, s.Snapshot())
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].StartedAt.Equal(out[j].StartedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].StartedAt.After(out[j].StartedAt)
+	})
 	return out
 }
 

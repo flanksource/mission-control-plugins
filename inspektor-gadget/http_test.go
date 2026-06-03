@@ -8,6 +8,8 @@ import (
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var _ = ginkgo.Describe("http", func() {
@@ -23,6 +25,20 @@ var _ = ginkgo.Describe("http", func() {
 		handler.ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
+	})
+
+	ginkgo.It("returns permission errors as HTTP 403 for the UI", func() {
+		plugin := newPlugin()
+		handler := plugin.httpInvoke("status", func(context.Context, sdk.InvokeCtx) (any, error) {
+			return nil, status.Error(codes.PermissionDenied, "cannot read connection")
+		})
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/status", nil)
+		handler.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusForbidden))
+		Expect(rec.Body.String()).To(ContainSubstring("cannot read connection"))
 	})
 
 	ginkgo.It("exports buffered events as an attachment", func() {
