@@ -6,7 +6,6 @@ import { Field } from "./ui";
 import type { SessionStartTarget } from "./types";
 import { errorMessage, parsePortInput, sessionMatchesTarget } from "./utils";
 
-const DEFAULT_GOPS_PORT = 6061;
 const DEFAULT_PPROF_PORT = 6060;
 
 type SessionMenuProps = {
@@ -41,7 +40,7 @@ export function SessionMenu({
   const [open, setOpen] = useState(false);
   const [useGops, setUseGops] = useState(true);
   const [usePprof, setUsePprof] = useState(true);
-  const [gopsPort, setGopsPort] = useState(String(DEFAULT_GOPS_PORT));
+  const [gopsPort, setGopsPort] = useState("");
   const [pprofPort, setPprofPort] = useState(String(DEFAULT_PPROF_PORT));
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,7 +84,8 @@ export function SessionMenu({
                 onChecked={setUseGops}
                 port={gopsPort}
                 onPort={setGopsPort}
-                help="Enable only if the app imports github.com/google/gops/agent."
+                placeholder="auto"
+                help="Leave blank to auto-detect from gops pid files, or enter a port to override."
               />
               <EndpointOption
                 label="Use pprof"
@@ -184,6 +184,7 @@ function EndpointOption({
   port,
   onPort,
   help,
+  placeholder,
 }: {
   label: string;
   checked: boolean;
@@ -191,6 +192,7 @@ function EndpointOption({
   port: string;
   onPort: (port: string) => void;
   help: string;
+  placeholder?: string;
 }) {
   return (
     <div className={`rounded-md border p-2 ${checked ? "bg-card" : "bg-muted/30"}`}>
@@ -210,6 +212,7 @@ function EndpointOption({
             min={1}
             max={65535}
             value={port}
+            placeholder={placeholder}
             disabled={!checked}
             onInput={(event) => onPort((event.target as HTMLInputElement).value)}
           />

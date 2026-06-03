@@ -96,6 +96,10 @@ func parseGopsDiscovery(raw string) []GopsProcess {
 }
 
 func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
+	return selectGopsProcessForTarget(processes, pid, TargetRef{})
+}
+
+func selectGopsProcessForTarget(processes []GopsProcess, pid int, target TargetRef) (GopsProcess, bool) {
 	if pid > 0 {
 		for _, proc := range processes {
 			if proc.PID == pid {
@@ -107,7 +111,45 @@ func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
 	if len(processes) == 0 {
 		return GopsProcess{}, false
 	}
-	return processes[0], true
+	if len(processes) == 1 {
+		return processes[0], true
+	}
+
+	best := processes[0]
+	bestScore := gopsProcessScore(best, target)
+	for _, proc := range processes[1:] {
+		score := gopsProcessScore(proc, target)
+		if score > bestScore || (score == bestScore && proc.PID < best.PID) {
+			best = proc
+			bestScore = score
+		}
+	}
+	return best, true
+}
+
+func gopsProcessScore(proc GopsProcess, target TargetRef) int {
+	score := 0
+	cmd := strings.ToLower(proc.Command)
+	name := strings.ToLower(strings.TrimSpace(target.Name))
+
+	// In Kubernetes containers PID 1 is normally the workload process. Prefer it
+	// when multiple helpers/plugins in the same container also expose gops.
+	if proc.PID == 1 {
+		score += 100
+	}
+	if name != "" && strings.Contains(cmd, name) {
+		score += 60
+	}
+	if isMissionControlPluginCommand(cmd) {
+		score -= 40
+	} else if cmd != "" {
+		score += 20
+	}
+	return score
+}
+
+func isMissionControlPluginCommand(cmd string) bool {
+	return strings.Contains(cmd, "/.mission-control/plugins/") || strings.Contains(cmd, "-mc-plugin")
 }
 
 func shellQuote(s string) string {

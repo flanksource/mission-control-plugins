@@ -22,4 +22,26 @@ var _ = ginkgo.Describe("gops discovery parsing", func() {
 		Expect(ok).To(BeTrue())
 		Expect(got.Port).To(Equal(2000))
 	})
+
+	ginkgo.It("prefers pid 1 over plugin helper processes", func() {
+		procs := []GopsProcess{
+			{PID: 23, Port: 39217, Command: "/root/.mission-control/plugins/golang-mc-plugin"},
+			{PID: 1, Port: 33055, Command: "/app/incident-commander serve"},
+			{PID: 38, Port: 41291, Command: "/root/.mission-control/plugins/kubernetes-logs-mc-plugin"},
+		}
+		got, ok := selectGopsProcessForTarget(procs, 0, TargetRef{Name: "mission-control"})
+		Expect(ok).To(BeTrue())
+		Expect(got.PID).To(Equal(1))
+		Expect(got.Port).To(Equal(33055))
+	})
+
+	ginkgo.It("uses the target name when pid 1 is not present", func() {
+		procs := []GopsProcess{
+			{PID: 20, Port: 2000, Command: "/app/worker serve"},
+			{PID: 30, Port: 3000, Command: "/app/api serve"},
+		}
+		got, ok := selectGopsProcessForTarget(procs, 0, TargetRef{Name: "api"})
+		Expect(ok).To(BeTrue())
+		Expect(got.PID).To(Equal(30))
+	})
 })

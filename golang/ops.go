@@ -155,7 +155,7 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		procs, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
 		if err != nil {
 			diagnostics = append(diagnostics, err.Error())
-		} else if proc, ok := selectGopsProcess(procs, pid); ok {
+		} else if proc, ok := selectGopsProcessForTarget(procs, pid, target); ok {
 			gopsPort = proc.Port
 			pid = proc.PID
 			diagnostics = append(diagnostics, fmt.Sprintf("discovered gops pid=%d port=%d", proc.PID, proc.Port))
