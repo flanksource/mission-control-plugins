@@ -42,6 +42,10 @@ export function Header({
                 v{pluginVersion}
                 {pluginBuildDate ? ` ${pluginBuildDate}` : ''}
               </span>
+              <span className={`status-badge header-status ${statusTone}`}>
+                {status?.ready ? <CheckCircle2 size={11} /> : <CircleAlert size={11} />}
+                {statusLabel}
+              </span>
             </div>
             <p>eBPF observability for Kubernetes workloads</p>
           </div>
@@ -58,42 +62,14 @@ export function Header({
         </div>
       </div>
 
-      <div className="status-strip">
-        <span className={`status-badge ${statusTone}`}>
-          {status?.ready ? <CheckCircle2 size={14} /> : <CircleAlert size={14} />}
-          {statusLabel}
-        </span>
-        <span className="meta-chip">
-          <span>Namespace</span>
-          <strong>{status?.namespace || 'gadget'}</strong>
-        </span>
-        {status?.expectedTag && (
-          <span className="meta-chip">
-            <span>Expected</span>
-            <strong>{status.expectedTag}</strong>
-          </span>
-        )}
-        {status?.version && (
-          <span className="meta-chip">
-            <span>Image</span>
-            <strong>{status.version}</strong>
-          </span>
-        )}
-        {status?.desired !== undefined && (
-          <span className="meta-chip">
-            <span>Pods</span>
-            <strong>
-              {status.readyPods || 0}/{status.desired}
-            </strong>
-          </span>
-        )}
-        {!status?.ready && (
+      {!status?.ready && (
+        <div className="status-strip">
           <button className="install-button" onClick={onInstall} disabled={busy === 'install'}>
             {busy === 'install' ? <Loader2 className="spin" size={14} /> : <Wrench size={14} />}
             Install
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {problems ? (
         <div className="header-problems" title={problems}>

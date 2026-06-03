@@ -248,6 +248,14 @@ body {
   color: var(--ig-warn-fg);
 }
 
+.header-status {
+  min-height: 18px;
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .meta-chip {
   max-width: min(280px, 100%);
   color: var(--ig-muted-fg);

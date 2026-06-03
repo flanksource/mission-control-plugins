@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -109,7 +112,11 @@ func (c *clientCache) Discovery(ctx context.Context, host sdk.HostClient) (disco
 func buildRestConfig(ctx context.Context, host sdk.HostClient) (*rest.Config, error) {
 	if host != nil {
 		conn, err := host.GetConnectionByType(ctx, sdk.ConnectionTypeKubernetes)
-		if err == nil && conn != nil && conn.Properties != nil {
+		if err != nil {
+			if isPermissionDenied(err) {
+				return nil, fmt.Errorf("plugin does not have access to %s connection: %w", sdk.ConnectionTypeKubernetes, err)
+			}
+		} else if conn != nil && conn.Properties != nil {
 			if kc, ok := conn.Properties.AsMap()["kubeconfig"].(string); ok && kc != "" {
 				if cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(kc)); err == nil {
 					return cfg, nil
@@ -125,4 +132,17 @@ func buildRestConfig(ctx context.Context, host sdk.HostClient) (*rest.Config, er
 		return nil, fmt.Errorf("no host kubernetes connection and no in-cluster config: %w", err)
 	}
 	return cfg, nil
+}
+
+func isPermissionDenied(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if status.Code(err) == codes.PermissionDenied {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "permission denied") || strings.Contains(msg, "forbidden") || strings.Contains(msg, "403")
 }

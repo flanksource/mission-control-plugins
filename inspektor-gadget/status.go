@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -61,7 +62,7 @@ func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, exp
 		out.Ready = true
 	}
 	if expectedTag != "" && out.Version != "" && out.Version != expectedTag {
-		out.Problems = append(out.Problems, "DaemonSet image tag does not match plugin default")
+		out.Problems = append(out.Problems, fmt.Sprintf("Inspektor Gadget version (%s) installed in the cluster doesn't match the required version (%s) by the plugin", out.Version, expectedTag))
 	}
 	return out
 }
