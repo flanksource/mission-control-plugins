@@ -37,11 +37,10 @@ export function EventPanel({ activeSession, activeGadgetSpec, events }: EventPan
     <section className="panel events">
       <div className="panel-heading">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="panel-title">Events</div>
           {activeGadgetSpec && <WidgetBadge gadget={activeGadgetSpec} rows={displayRows} rawCount={eventRows.length} />}
         </div>
         {activeSession && (
-          <Button asChild size="sm">
+          <Button asChild variant="outline" size="sm">
             <a href={pluginUiPath(`/sessions/${activeSession.id}/export`)} download={`${activeSession.id}.ndjson`}>
               <Download size={14} /> NDJSON
             </a>

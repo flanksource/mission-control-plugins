@@ -52,7 +52,7 @@ export function Header({
         </div>
 
         <div className="header-actions">
-          <Button size="sm" onClick={onStartTrace} disabled={!canStart}>
+          <Button variant="outline" size="sm" onClick={onStartTrace} disabled={!canStart}>
             <Play size={14} />
             Start trace
           </Button>

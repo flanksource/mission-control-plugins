@@ -25,7 +25,7 @@ const (
 	OpTraceList    = "trace-list"
 	OpTraceEvents  = "trace-events"
 	pluginName     = "inspektor-gadget"
-	defaultIGTag   = "v0.52.0"
+	defaultIGTag   = "v0.53.0"
 	defaultMaxRuns = 5
 )
 

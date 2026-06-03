@@ -60,12 +60,17 @@ tasks:
   build:
     desc: Build and install the plugin binary into $MISSION_CONTROL_PLUGIN_PATH
     deps: [generate]
+    vars:
+      DEBUG: '{{.DEBUG | default "false"}}'
     cmds:
       - mkdir -p {{.PLUGIN_PATH}}
-      - >-
-        go build -o {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}}
-        -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'"
-        .
+      - |
+        set -euo pipefail
+        build_args=()
+        if [ "{{.DEBUG}}" = "true" ]; then build_args+=(-gcflags "all=-N -l"); fi
+        go build "${build_args[@]}" -o {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}} \
+          -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" \
+          .
       - echo "Installed {{.PLUGIN_PATH}}/{{.PLUGIN_NAME}} version={{.VERSION}} built={{.BUILD_DATE}}"
     sources:
       - ./*.go

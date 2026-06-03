@@ -42,7 +42,7 @@ tasks:
   build:
     desc: Build standalone plugin modules
     cmds:
-      - task -d opensearch build
+      - task -d opensearch build DEBUG={{.DEBUG | default "false"}}
 
   clean:
     desc: Remove build artifacts and Task checksums
@@ -393,16 +393,20 @@ tasks:
         sh: echo "${MISSION_CONTROL_PLUGIN_PATH:-$HOME/.mission-control/plugins}"
       TARGET_GOOS: '{{.TARGET_GOOS | default ""}}'
       TARGET_GOARCH: '{{.TARGET_GOARCH | default ""}}'
+      DEBUG: '{{.DEBUG | default "false"}}'
     cmds:
       - mkdir -p {{.PLUGIN_PATH}}
       - |
         set -euo pipefail
         goos="{{.TARGET_GOOS}}"
         goarch="{{.TARGET_GOARCH}}"
+        debug="{{.DEBUG}}"
         env_args=(CGO_ENABLED=0)
+        build_args=()
         if [ -n "$goos" ]; then env_args+=(GOOS="$goos"); fi
         if [ -n "$goarch" ]; then env_args+=(GOARCH="$goarch"); fi
-        (cd {{.PLUGIN}} && env "${env_args[@]}" go build -o {{.PLUGIN_PATH}}/{{.PLUGIN}} -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" .)
+        if [ "$debug" = "true" ]; then build_args+=(-gcflags "all=-N -l"); fi
+        (cd {{.PLUGIN}} && env "${env_args[@]}" go build "${build_args[@]}" -o {{.PLUGIN_PATH}}/{{.PLUGIN}} -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" .)
       - echo "Installed {{.PLUGIN_PATH}}/{{.PLUGIN}} version={{.VERSION}} built={{.BUILD_DATE}}"
     sources:
       - "{{.PLUGIN}}/**/*.go"
@@ -466,43 +470,43 @@ tasks:
     desc: Build and install the arthas plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: arthas }
+        vars: { PLUGIN: arthas, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:golang:
     desc: Build and install the golang plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: golang }
+        vars: { PLUGIN: golang, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:inspektor-gadget:
     desc: Build and install the inspektor-gadget plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: inspektor-gadget }
+        vars: { PLUGIN: inspektor-gadget, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:kubernetes-logs:
     desc: Build and install the kubernetes-logs plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: kubernetes-logs }
+        vars: { PLUGIN: kubernetes-logs, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:postgres:
     desc: Build and install the postgres plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: postgres }
+        vars: { PLUGIN: postgres, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:s3:
     desc: Build and install the s3 plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: s3 }
+        vars: { PLUGIN: s3, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:sql-server:
     desc: Build and install the sql-server plugin
     cmds:
       - task: plugin:build
-        vars: { PLUGIN: sql-server }
+        vars: { PLUGIN: sql-server, DEBUG: '{{.DEBUG | default "false"}}' }
 
   # ────────────── Developer loops ──────────────
 

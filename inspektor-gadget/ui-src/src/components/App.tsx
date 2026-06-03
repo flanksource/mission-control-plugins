@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
 import {
   Button,
@@ -47,6 +47,7 @@ export function App() {
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(true);
   const [sessionsWidth, setSessionsWidth] = useState(320);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
 
   async function refresh() {
     setError("");
@@ -88,6 +89,10 @@ export function App() {
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    return () => resizeCleanupRef.current?.();
   }, []);
 
   const activeSession = useMemo(
@@ -176,16 +181,22 @@ export function App() {
 
   function beginSessionsResize(event: React.MouseEvent<HTMLDivElement>) {
     event.preventDefault();
+    resizeCleanupRef.current?.();
     const startX = event.clientX;
     const startWidth = sessionsWidth;
     const move = (moveEvent: MouseEvent) => {
       const next = Math.min(520, Math.max(240, startWidth + moveEvent.clientX - startX));
       setSessionsWidth(next);
     };
-    const up = () => {
+    const cleanup = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
+    const up = () => {
+      cleanup();
+      resizeCleanupRef.current = null;
+    };
+    resizeCleanupRef.current = cleanup;
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
   }

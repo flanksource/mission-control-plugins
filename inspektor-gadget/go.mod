@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/flanksource/incident-commander/plugin/api v0.0.1
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.1
-	github.com/inspektor-gadget/inspektor-gadget v0.52.0
+	github.com/inspektor-gadget/inspektor-gadget v0.53.0
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	google.golang.org/grpc v1.81.1
@@ -72,10 +72,10 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

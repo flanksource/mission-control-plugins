@@ -108,7 +108,16 @@ export function StartTraceDialog({
           </label>
           <label>
             Duration
-            <input type="number" min={10} max={900} value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))} />
+            <input
+              type="number"
+              min={10}
+              max={900}
+              value={durationSec}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (Number.isFinite(next)) setDurationSec(Math.min(900, Math.max(10, next)));
+              }}
+            />
           </label>
           <div className="duration-presets" aria-label="Duration presets">
             {durationPresets.map((preset) => (
