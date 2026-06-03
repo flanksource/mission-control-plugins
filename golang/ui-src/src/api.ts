@@ -1,3 +1,5 @@
+import { invoke } from "@flanksource/plugin-ui-sdk";
+
 export interface RunningPod {
   namespace: string;
   name: string;
@@ -69,37 +71,57 @@ export interface ProfileRun {
   url?: string;
 }
 
+export interface FlamegraphNode {
+  name: string;
+  value: number;
+  self?: number;
+  children?: FlamegraphNode[];
+}
+
+export interface ProfileFlamegraph {
+  sampleType: string;
+  unit: string;
+  total: number;
+  sampleTypes: string[];
+  root: FlamegraphNode;
+}
+
 export function configIDFromURL(): string {
   return new URLSearchParams(window.location.search).get("config_id") ?? "";
 }
 
-function pluginBasePath(): string {
-  return window.location.pathname.replace(/\/ui(?:\/.*)?$/, "");
-}
-
-function operationURL(op: string): string {
-  const url = new URL(pluginBasePath() + "/proxy/" + op, window.location.origin);
-  const configID = configIDFromURL();
-  if (configID) url.searchParams.set("config_id", configID);
-  return url.toString();
-}
-
-export function pluginURL(path: string): string {
-  const [op, ...rest] = path.replace(/^\//, "").split("/");
-  const url = new URL(pluginBasePath() + "/proxy/" + op, window.location.origin);
-  const configID = configIDFromURL();
-  if (configID) url.searchParams.set("config_id", configID);
-  if (rest.length > 0) url.searchParams.set("path", rest.join("/"));
-  return url.toString();
-}
-
 export async function callOp<T>(op: string, params: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(operationURL(op), {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+  const res = await invoke(op, params);
+  return responseJSON<T>(res);
+}
+
+export async function fetchProfileFlamegraph(sessionID: string, runID: string, sampleIndex?: string): Promise<ProfileFlamegraph> {
+  const res = await invoke("profiles", undefined, {
+    method: "GET",
+    query: { path: `${sessionID}/${runID}/flamegraph-data`, si: sampleIndex },
   });
+  return responseJSON<ProfileFlamegraph>(res);
+}
+
+export async function fetchProfileTop(sessionID: string, runID: string, sampleIndex?: string): Promise<string> {
+  const res = await invoke("profiles", undefined, {
+    method: "GET",
+    query: { path: `${sessionID}/${runID}/top`, si: sampleIndex },
+  });
+  if (!res.ok) throw new Error(await res.text() || res.statusText);
+  return res.text();
+}
+
+export async function fetchProfileBlob(sessionID: string, runID: string): Promise<Blob> {
+  const res = await invoke("profiles", undefined, {
+    method: "GET",
+    query: { path: `${sessionID}/${runID}` },
+  });
+  if (!res.ok) throw new Error(await res.text() || res.statusText);
+  return res.blob();
+}
+
+async function responseJSON<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(await res.text() || res.statusText);
   return (await res.json()) as T;
 }

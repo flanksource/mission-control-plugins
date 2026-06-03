@@ -6,6 +6,7 @@ require (
 	github.com/flanksource/incident-commander/plugin/api v0.0.1
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.1
 	github.com/google/gops v0.3.29
+	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	k8s.io/api v0.35.4
@@ -38,7 +39,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect

@@ -1,9 +1,20 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ExternalLink, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
+import { Download, FileText, Flame, Play, Square, TerminalSquare } from "lucide-react";
 import { Button, SplitPane } from "@flanksource/clicky-ui";
-import { callOp, pluginURL, type GolangSession, type ProfileKind, type ProfileRun, type ProfileSource } from "../api";
+import {
+  callOp,
+  fetchProfileBlob,
+  fetchProfileFlamegraph,
+  fetchProfileTop,
+  type FlamegraphNode,
+  type GolangSession,
+  type ProfileFlamegraph,
+  type ProfileKind,
+  type ProfileRun,
+  type ProfileSource,
+} from "../api";
 import { Empty, ErrorText, Field, GopsRequiredOverlay, InfoCard, KV, LoadingOverlay, RefetchIndicator, RunBadge, useDelayedTruthy } from "./ui";
 import { fmtBytes, fmtDuration } from "./utils";
 
@@ -148,10 +159,17 @@ type ProfilerView = "flamegraph" | "top" | "raw";
 function ProfilerOutputView({ session, run }: { session: GolangSession; run: ProfileRun | null }) {
   const renderable = !!run && run.state === "completed" && run.kind !== "trace";
   const [view, setView] = useState<ProfilerView>(renderable ? "flamegraph" : "raw");
+  const [sampleIndex, setSampleIndex] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!renderable && view !== "raw") setView("raw");
   }, [renderable, view]);
+
+  useEffect(() => {
+    setSampleIndex("");
+  }, [run?.id]);
 
   if (!run) {
     return (
@@ -162,58 +180,230 @@ function ProfilerOutputView({ session, run }: { session: GolangSession; run: Pro
   }
 
   const downloadName = profileDownloadName(session, run);
-  const renderURL = (path: string) => pluginURL(`profiles/${session.id}/${run.id}/${path}`);
-  const downloadURL = pluginURL(`profiles/${session.id}/${run.id}`);
+  const download = async () => {
+    setDownloadError(null);
+    setDownloading(true);
+    try {
+      const blob = await fetchProfileBlob(session.id, run.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-2 p-3">
       <div className="flex items-center justify-between gap-2">
         <ProfilerOutputSwitch value={view} onChange={setView} disabled={!renderable} kind={run.kind} />
-        <div className="flex items-center gap-1">
-          {renderable && (
-            <a
-              className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs hover:bg-accent"
-              href={renderURL("flamegraph")}
-              target="_blank"
-              rel="noreferrer"
-              title="Open pprof viewer in a new tab"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Open viewer
-            </a>
-          )}
-          {run.state === "completed" && (
-            <Button asChild size="sm" variant="outline">
-              <a href={downloadURL} download={downloadName}>
-                <Download className="h-4 w-4" />
-                Download
-              </a>
-            </Button>
-          )}
-        </div>
+        {run.state === "completed" && (
+          <Button size="sm" variant="outline" loading={downloading} onClick={download}>
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        )}
       </div>
+      {downloadError && <ErrorText error={downloadError} />}
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-background">
         {view === "flamegraph" && renderable ? (
-          <iframe
-            key={`flame-${run.id}`}
-            title="Profile flamegraph"
-            src={renderURL("flamegraph")}
-            className="h-full w-full border-0"
-          />
+          <ProfilerFlamegraphView sessionID={session.id} runID={run.id} sampleIndex={sampleIndex} onSampleIndexChange={setSampleIndex} />
         ) : view === "top" && renderable ? (
-          <iframe
-            key={`top-${run.id}`}
-            title="Profile top functions"
-            src={renderURL("top")}
-            className="h-full w-full border-0"
-          />
+          <ProfilerTopView sessionID={session.id} runID={run.id} sampleIndex={sampleIndex} />
         ) : (
           <ProfilerRawView run={run} />
         )}
       </div>
     </section>
   );
+}
+
+function ProfilerFlamegraphView({
+  sessionID,
+  runID,
+  sampleIndex,
+  onSampleIndexChange,
+}: {
+  sessionID: string;
+  runID: string;
+  sampleIndex: string;
+  onSampleIndexChange: (value: string) => void;
+}) {
+  const q = useQuery({
+    queryKey: ["golang", sessionID, runID, "flamegraph", sampleIndex || "default"],
+    queryFn: () => fetchProfileFlamegraph(sessionID, runID, sampleIndex || undefined),
+  });
+
+  if (q.isLoading) return <Empty>Loading flamegraph…</Empty>;
+  if (q.error) return <div className="p-3"><ErrorText error={q.error} /></div>;
+  if (!q.data || q.data.total <= 0) return <Empty>Profile has no samples for this sample type.</Empty>;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="text-muted-foreground">
+          {q.data.sampleType} · {formatFlamegraphValue(q.data.total, q.data.unit)} total
+        </div>
+        {q.data.sampleTypes.length > 1 && (
+          <select
+            className="h-7 rounded-md border bg-background px-2 text-xs"
+            value={sampleIndex || q.data.sampleType}
+            onChange={(event) => onSampleIndexChange((event.target as HTMLSelectElement).value)}
+          >
+            {q.data.sampleTypes.map((sampleType) => <option key={sampleType} value={sampleType}>{sampleType}</option>)}
+          </select>
+        )}
+      </div>
+      <Flamegraph data={q.data} />
+    </div>
+  );
+}
+
+function ProfilerTopView({ sessionID, runID, sampleIndex }: { sessionID: string; runID: string; sampleIndex: string }) {
+  const q = useQuery({
+    queryKey: ["golang", sessionID, runID, "top", sampleIndex || "default"],
+    queryFn: () => fetchProfileTop(sessionID, runID, sampleIndex || undefined),
+  });
+  if (q.isLoading) return <Empty>Loading top functions…</Empty>;
+  if (q.error) return <div className="p-3"><ErrorText error={q.error} /></div>;
+  return <pre className="h-full overflow-auto p-3 font-mono text-xs">{q.data}</pre>;
+}
+
+function Flamegraph({ data }: { data: ProfileFlamegraph }) {
+  const [focused, setFocused] = useState<FlamegraphNode | null>(null);
+  const [hovered, setHovered] = useState<FlameFrame | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setFocused(null);
+    setHovered(null);
+    setSearch("");
+  }, [data]);
+
+  const root = focused ?? data.root;
+  const frames = useMemo(() => buildFlameFrames(root), [root]);
+  const maxDepth = frames.reduce((max, frame) => Math.max(max, frame.depth), 0);
+  const rowHeight = 22;
+  const width = 1000;
+  const height = Math.max(1, maxDepth + 1) * rowHeight;
+  const needle = search.trim().toLowerCase();
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs">
+        <input
+          className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2"
+          placeholder="Search frames"
+          value={search}
+          onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
+        />
+        {focused && <Button size="sm" variant="outline" onClick={() => setFocused(null)}>Reset zoom</Button>}
+      </div>
+      <div className="rounded-md border bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
+        {hovered ? (
+          <span>
+            <span className="font-mono text-foreground">{hovered.node.name}</span>{" "}
+            {formatFlamegraphValue(hovered.node.value, data.unit)} ({((hovered.node.value / root.value) * 100).toFixed(2)}%)
+            {hovered.node.self ? ` · self ${formatFlamegraphValue(hovered.node.self, data.unit)}` : ""}
+          </span>
+        ) : (
+          <span>Click a frame to zoom. Wheel/trackpad scroll is handled by the container.</span>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-background">
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="min-w-[900px] select-none text-[10px]">
+          {frames.map((frame) => {
+            if (frame.w <= 0.05) return null;
+            const y = (maxDepth - frame.depth) * rowHeight;
+            const match = !needle || frame.node.name.toLowerCase().includes(needle);
+            const text = frame.w > 22 ? truncateFrameName(frame.node.name, frame.w) : "";
+            return (
+              <g key={frame.path} onClick={() => setFocused(frame.node)} onMouseEnter={() => setHovered(frame)} onMouseLeave={() => setHovered(null)} className="cursor-pointer">
+                <rect
+                  x={frame.x}
+                  y={y + 1}
+                  width={Math.max(0, frame.w - 0.5)}
+                  height={rowHeight - 2}
+                  rx={2}
+                  fill={colorForFrame(frame.node.name)}
+                  opacity={match ? 0.95 : 0.28}
+                  stroke={needle && match ? "#facc15" : "rgba(0,0,0,0.2)"}
+                  strokeWidth={needle && match ? 1.5 : 0.4}
+                />
+                {text && (
+                  <text x={frame.x + 4} y={y + 15} fill="rgba(255,255,255,0.95)" pointerEvents="none">
+                    {text}
+                  </text>
+                )}
+                <title>{`${frame.node.name}\n${formatFlamegraphValue(frame.node.value, data.unit)}`}</title>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+type FlameFrame = {
+  node: FlamegraphNode;
+  x: number;
+  w: number;
+  depth: number;
+  path: string;
+};
+
+function buildFlameFrames(root: FlamegraphNode): FlameFrame[] {
+  const frames: FlameFrame[] = [];
+  const walk = (node: FlamegraphNode, x: number, w: number, depth: number, path: string) => {
+    frames.push({ node, x, w, depth, path });
+    let childX = x;
+    for (let i = 0; i < (node.children?.length ?? 0); i++) {
+      const child = node.children![i];
+      const childW = node.value > 0 ? w * (child.value / node.value) : 0;
+      walk(child, childX, childW, depth + 1, `${path}.${i}`);
+      childX += childW;
+    }
+  };
+  walk(root, 0, 1000, 0, "0");
+  return frames;
+}
+
+function colorForFrame(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue} 70% 45%)`;
+}
+
+function truncateFrameName(name: string, width: number): string {
+  const max = Math.max(3, Math.floor(width / 5.8));
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+}
+
+function formatFlamegraphValue(value: number, unit: string): string {
+  if (unit === "nanoseconds" || unit === "ns") {
+    if (value >= 1e9) return `${(value / 1e9).toFixed(2)}s`;
+    if (value >= 1e6) return `${(value / 1e6).toFixed(2)}ms`;
+    if (value >= 1e3) return `${(value / 1e3).toFixed(2)}µs`;
+    return `${value}ns`;
+  }
+  if (unit === "bytes") {
+    let v = value;
+    for (const suffix of ["B", "KiB", "MiB", "GiB", "TiB"]) {
+      if (v < 1024 || suffix === "TiB") return `${v.toFixed(2)}${suffix}`;
+      v /= 1024;
+    }
+  }
+  return unit ? `${value}${unit}` : String(value);
 }
 
 function ProfilerRawView({ run }: { run: ProfileRun }) {
@@ -314,7 +504,7 @@ function profilePreview(kind: ProfileKind, source: ProfileSource, seconds: numbe
 function profileHelp(run: ProfileRun): string {
   if (run.state === "running") return "Profile is still running. Status refreshes automatically.";
   if (run.state === "stopped") return "Profile run was stopped before producing a downloadable profile.";
-  if (run.state === "completed") return "Profile is complete. Use Download to inspect it with go tool pprof or go tool trace.";
+  if (run.state === "completed") return "Profile is complete. Use Flamegraph or Top to inspect it, or Download for offline analysis.";
   return "Profile run did not produce output.";
 }
 
