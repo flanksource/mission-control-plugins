@@ -13,7 +13,7 @@ type HeaderProps = {
 
 export function Header({ status, canStart, onStartTrace, onRefresh }: HeaderProps) {
   const [manifestOpen, setManifestOpen] = useState(false)
-  const problems = status?.problems?.join(' ')
+  const problems = status?.installed ? status.problems?.join(' ') : ''
   const statusLabel = status?.ready
     ? 'Ready'
     : status?.installed
@@ -55,7 +55,7 @@ export function Header({ status, canStart, onStartTrace, onRefresh }: HeaderProp
         </div>
       </div>
 
-      {!status?.ready && (
+      {!status?.installed && (
         <div className="status-strip">
           <span>
             Inspektor Gadget must be installed. The plugin expects the <code>gadget</code> daemonset
