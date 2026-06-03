@@ -1,7 +1,7 @@
 # Inspektor Gadget Mission Control Plugin
 
 The Inspektor Gadget plugin adds eBPF-based Kubernetes workload diagnostics to Mission Control. 
-It can install/check the Inspektor Gadget deployment and run bounded gadget trace sessions against selected Kubernetes resources from the Mission Control UI.
+It checks an existing Inspektor Gadget deployment and runs bounded gadget trace sessions against selected Kubernetes resources from the Mission Control UI.
 
 ## What it does
 
@@ -14,7 +14,7 @@ It can install/check the Inspektor Gadget deployment and run bounded gadget trac
   - `Kubernetes::Job`
   - `Kubernetes::CronJob`
 - Checks whether Inspektor Gadget is deployed and ready.
-- Can generate or apply the Inspektor Gadget Kubernetes manifest.
+- Requires Inspektor Gadget to be installed through your approved cluster deployment process.
 - Resolves the selected workload to pods, containers, nodes, or selectors.
 - Starts eBPF gadget runs through the Inspektor Gadget gadget-service API.
 - Uses Kubernetes API port-forwarding to reach gadget-service pods.
@@ -36,8 +36,6 @@ The plugin exposes a curated list of Inspektor Gadget gadgets, including:
 | Operation      | Purpose                                                         |
 | -------------- | --------------------------------------------------------------- |
 | `status`       | Check Inspektor Gadget deployment readiness.                    |
-| `install-plan` | Return the Kubernetes manifest that would be applied.           |
-| `install`      | Apply the Inspektor Gadget manifest through the Kubernetes API. |
 | `traces-list`  | List supported gadgets.                                         |
 | `trace-start`  | Start a bounded trace session for the selected resource.        |
 | `trace-stop`   | Stop a running trace session.                                   |
@@ -46,7 +44,7 @@ The plugin exposes a curated list of Inspektor Gadget gadgets, including:
 
 ## Kubernetes access
 
-The plugin needs Kubernetes API access to inspect/install Inspektor Gadget, resolve workload pods, port-forward to gadget-service, and run traces.
+The plugin needs Kubernetes API access to inspect an existing Inspektor Gadget deployment, resolve workload pods, port-forward to gadget-service, and run traces.
 
 At runtime it first tries to resolve a Mission Control Kubernetes connection via:
 
@@ -72,7 +70,7 @@ The plugin supports these `spec.properties` settings:
 | Property          | Default   | Description                                                    |
 | ----------------- | --------- | -------------------------------------------------------------- |
 | `gadgetNamespace` | `gadget`  | Namespace where Inspektor Gadget is installed.                 |
-| `gadgetTag`       | `v0.53.0` | Inspektor Gadget image tag used for install and gadget images. |
+| `gadgetTag`       | `v0.53.0` | Expected Inspektor Gadget image tag and tag used for gadget images. |
 | `maxDurationSec`  | `900`     | Maximum trace duration in seconds.                             |
 | `maxEvents`       | `10000`   | Maximum buffered events per session.                           |
 | `maxSessions`     | `5`       | Maximum concurrent trace sessions.                             |

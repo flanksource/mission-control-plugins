@@ -166,19 +166,6 @@ export function App() {
     }
   }
 
-  async function install() {
-    setBusy("install");
-    setError("");
-    try {
-      await invoke("install");
-      await refresh();
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setBusy("");
-    }
-  }
-
   function beginSessionsResize(event: React.MouseEvent<HTMLDivElement>) {
     event.preventDefault();
     resizeCleanupRef.current?.();
@@ -205,9 +192,7 @@ export function App() {
     <div className="app">
       <Header
         status={status}
-        busy={busy}
         canStart={Boolean(configId())}
-        onInstall={install}
         onStartTrace={() => setStartDialogOpen(true)}
         onRefresh={() => refresh().catch((err) => setError(String(err)))}
       />

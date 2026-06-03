@@ -17,8 +17,6 @@ import (
 
 const (
 	OpStatus       = "status"
-	OpInstallPlan  = "install-plan"
-	OpInstall      = "install"
 	OpTracesList   = "traces-list"
 	OpTraceStart   = "trace-start"
 	OpTraceStop    = "trace-stop"
@@ -119,8 +117,6 @@ func (p *InspektorGadgetPlugin) Configure(_ context.Context, settings map[string
 func (p *InspektorGadgetPlugin) Operations() []sdk.Operation {
 	handlers := map[string]func(context.Context, sdk.InvokeCtx) (any, error){
 		OpStatus:      p.status,
-		OpInstallPlan: p.installPlan,
-		OpInstall:     p.install,
 		OpTracesList:  p.tracesList,
 		OpTraceStart:  p.traceStart,
 		OpTraceStop:   p.traceStop,
@@ -149,8 +145,6 @@ func operationDefs() []*pluginpb.OperationDef {
 	}
 	return []*pluginpb.OperationDef{
 		mk(OpStatus, "Check Inspektor Gadget deployment readiness through the Kubernetes API."),
-		mk(OpInstallPlan, "Return the Kubernetes manifest that would install Inspektor Gadget."),
-		mk(OpInstall, "Apply the Inspektor Gadget Kubernetes manifest through the Kubernetes API."),
 		mk(OpTracesList, "List supported Inspektor Gadget traces."),
 		mk(OpTraceStart, "Start a bounded Inspektor Gadget trace session for this resource."),
 		mk(OpTraceStop, "Stop a running trace session."),

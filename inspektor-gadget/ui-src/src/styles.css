@@ -183,28 +183,6 @@ body {
   color: var(--ig-fg);
 }
 
-.install-button {
-  display: inline-flex;
-  min-height: 28px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--ig-input);
-  border-radius: 999px;
-  background: var(--ig-fg);
-  color: var(--ig-bg);
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
-}
-
-.install-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ig-fg) 88%, var(--ig-bg));
-  transform: translateY(-1px);
-}
-
 .app button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -215,8 +193,13 @@ body {
   min-width: 0;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  color: var(--ig-muted-fg);
   font-size: 12px;
+}
+
+.status-strip code {
+  color: var(--ig-fg);
 }
 
 .status-badge,
