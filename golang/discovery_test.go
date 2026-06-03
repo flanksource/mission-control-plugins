@@ -22,4 +22,16 @@ var _ = ginkgo.Describe("gops discovery parsing", func() {
 		Expect(ok).To(BeTrue())
 		Expect(got.Port).To(Equal(2000))
 	})
+
+	ginkgo.It("selects the lowest pid when no pid is requested", func() {
+		procs := []GopsProcess{
+			{PID: 42, Port: 6061, Command: "/app/worker serve"},
+			{PID: 17, Port: 39217, Command: "/app/helper serve"},
+			{PID: 30, Port: 3000, Command: "/app/api serve"},
+		}
+		got, ok := selectGopsProcess(procs, 0)
+		Expect(ok).To(BeTrue())
+		Expect(got.PID).To(Equal(17))
+		Expect(got.Port).To(Equal(39217))
+	})
 })

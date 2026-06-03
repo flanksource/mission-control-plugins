@@ -11,12 +11,15 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// GopsProcess describes one gops agent port file found inside a container.
 type GopsProcess struct {
 	PID     int    `json:"pid"`
 	Port    int    `json:"port"`
 	Command string `json:"command,omitempty"`
 }
 
+// discoverGopsProcesses executes the discovery script in the selected container
+// and returns the gops pid/port entries that are valid for running processes.
 func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace, pod, container string, dirs []string) ([]GopsProcess, error) {
 	script := buildGopsDiscoveryScript(dirs)
 	var stdout, stderr bytes.Buffer
@@ -30,9 +33,12 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 	}); err != nil {
 		return nil, fmt.Errorf("discover gops ports: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
 	}
+
 	return parseGopsDiscovery(stdout.String()), nil
 }
 
+// buildGopsDiscoveryScript builds a POSIX shell script that scans GOPS_CONFIG_DIR
+// and configured directories for gops port files named by PID.
 func buildGopsDiscoveryScript(dirs []string) string {
 	quoted := make([]string, 0, len(dirs)+1)
 	quoted = append(quoted, `"${GOPS_CONFIG_DIR:-}"`)
@@ -65,19 +71,23 @@ done
 `, strings.Join(quoted, " "))
 }
 
+// parseGopsDiscovery parses discovery script output lines in the form
+// "pid=<pid> port=<port> cmd=<cmdline>" and drops incomplete entries.
 func parseGopsDiscovery(raw string) []GopsProcess {
 	var out []GopsProcess
-	for _, line := range strings.Split(raw, "\n") {
+	for line := range strings.SplitSeq(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
+
 		var proc GopsProcess
-		for _, field := range strings.Fields(line) {
+		for field := range strings.FieldsSeq(line) {
 			k, v, ok := strings.Cut(field, "=")
 			if !ok {
 				continue
 			}
+
 			switch k {
 			case "pid":
 				proc.PID, _ = strconv.Atoi(v)
@@ -85,16 +95,21 @@ func parseGopsDiscovery(raw string) []GopsProcess {
 				proc.Port, _ = strconv.Atoi(v)
 			}
 		}
-		if idx := strings.Index(line, " cmd="); idx >= 0 {
-			proc.Command = strings.TrimSpace(line[idx+5:])
+
+		if _, after, ok := strings.Cut(line, " cmd="); ok {
+			proc.Command = strings.TrimSpace(after)
 		}
+
 		if proc.PID > 0 && proc.Port > 0 {
 			out = append(out, proc)
 		}
 	}
+
 	return out
 }
 
+// selectGopsProcess returns the requested PID when provided; otherwise it picks
+// the lowest PID from the discovered gops processes as the deterministic default.
 func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
 	if pid > 0 {
 		for _, proc := range processes {
@@ -107,7 +122,14 @@ func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
 	if len(processes) == 0 {
 		return GopsProcess{}, false
 	}
-	return processes[0], true
+
+	best := processes[0]
+	for _, proc := range processes[1:] {
+		if proc.PID < best.PID {
+			best = proc
+		}
+	}
+	return best, true
 }
 
 func shellQuote(s string) string {
