@@ -149,9 +149,6 @@ func (p *InspektorGadgetPlugin) traceStart(ctx context.Context, req sdk.InvokeCt
 		ResolvedPods: pods,
 		UserOptions:  options,
 	}
-	if req.Caller != nil {
-		diagnostics.StartedByUserID = req.Caller.UserId
-	}
 	session, runCtx := newTraceSession(gadget, target, runParams, diagnostics, p.settings.MaxEvents)
 	p.sessions.Add(session)
 

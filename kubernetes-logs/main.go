@@ -16,8 +16,7 @@ import (
 
 	dutyContext "github.com/flanksource/duty/context"
 	dutylogs "github.com/flanksource/duty/logs"
-	v1 "github.com/flanksource/incident-commander/api/v1"
-	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
+	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
@@ -108,7 +107,7 @@ type TailParams struct {
 	Container   string             `json:"container,omitempty"`
 	TailLines   int64              `json:"tailLines,omitempty"`
 	Previous    bool               `json:"previous,omitempty"`
-	PostProcess v1.LogsPostProcess `json:"postProcess,omitempty"`
+	PostProcess LogsPostProcess `json:"postProcess,omitempty"`
 }
 
 func (p *KubernetesLogsPlugin) tail(ctx context.Context, req sdk.InvokeCtx) (any, error) {

@@ -14,10 +14,25 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/gomplate/v3"
 
-	v1 "github.com/flanksource/incident-commander/api/v1"
 )
 
-func postProcessLogs(ctx dutyContext.Context, logLines []*logs.LogLine, postProcess v1.LogsPostProcess) []*logs.LogLine {
+type LogDedupe struct {
+	Window string   `json:"window,omitempty" yaml:"window,omitempty"`
+	Fields []string `json:"fields" yaml:"fields"`
+}
+
+type LogsPostProcess struct {
+	Dedupe  *LogDedupe              `json:"dedupe,omitempty" yaml:"dedupe,omitempty"`
+	Match   []types.MatchExpression `json:"match,omitempty" yaml:"match,omitempty"`
+	Mapping *logs.FieldMappingConfig `yaml:"mapping,omitempty" json:"mapping,omitempty"`
+	Parse   string                  `json:"parse,omitempty" yaml:"parse,omitempty"`
+}
+
+func (t LogsPostProcess) Empty() bool {
+	return len(t.Match) == 0 && t.Dedupe == nil && t.Parse == ""
+}
+
+func postProcessLogs(ctx dutyContext.Context, logLines []*logs.LogLine, postProcess LogsPostProcess) []*logs.LogLine {
 	if postProcess.Empty() {
 		return logLines
 	}
@@ -37,7 +52,7 @@ func postProcessLogs(ctx dutyContext.Context, logLines []*logs.LogLine, postProc
 	return dedupeLogs(matched, postProcess.Dedupe, messageFields)
 }
 
-func dedupeLogs(logLines []*logs.LogLine, dedupe *v1.LogDedupe, messageFields []string) []*logs.LogLine {
+func dedupeLogs(logLines []*logs.LogLine, dedupe *LogDedupe, messageFields []string) []*logs.LogLine {
 	if dedupe == nil {
 		return logLines
 	}

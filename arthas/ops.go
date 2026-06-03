@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
+	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	"github.com/flanksource/mission-control-plugins/arthas/internal/arthas"
 	arthask8s "github.com/flanksource/mission-control-plugins/arthas/internal/k8s"

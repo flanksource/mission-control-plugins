@@ -31,7 +31,7 @@ func resolveOpenSearch(ctx context.Context, host sdk.HostClient, configItemID st
 	if host == nil {
 		return resolvedOpenSearch{}, fmt.Errorf("no host client available")
 	}
-	conn, err := host.GetConnectionByType(ctx, sdk.ConnectionTypeOpenSearch)
+	conn, err := host.GetConnectionByType(ctx, sdk.ConnectionType("opensearch"))
 	if err != nil {
 		return resolvedOpenSearch{}, fmt.Errorf("get opensearch connection: %w", err)
 	}

@@ -272,6 +272,35 @@ tasks:
       - echo "Linting {{.PLUGIN}}"
       - '{{.GOLANGCI_LINT}} run --path-mode=abs'
 
+  plugin:tidy:
+    desc: Run go mod tidy for a plugin (PLUGIN=<name>)
+    requires:
+      vars: [PLUGIN]
+    dir: "{{.PLUGIN}}"
+    cmds:
+      - echo "Tidying {{.PLUGIN}}"
+      - go mod tidy
+
+  tidy:
+    desc: Run go mod tidy on all plugins
+    cmds:
+      - task: plugin:tidy
+        vars: { PLUGIN: arthas }
+      - task: plugin:tidy
+        vars: { PLUGIN: golang }
+      - task: plugin:tidy
+        vars: { PLUGIN: inspektor-gadget }
+      - task: plugin:tidy
+        vars: { PLUGIN: kubernetes-logs }
+      - task: plugin:tidy
+        vars: { PLUGIN: opensearch }
+      - task: plugin:tidy
+        vars: { PLUGIN: postgres }
+      - task: plugin:tidy
+        vars: { PLUGIN: s3 }
+      - task: plugin:tidy
+        vars: { PLUGIN: sql-server }
+
   lint:
     desc: Run golangci-lint on all plugins
     deps: [golangci-lint]
