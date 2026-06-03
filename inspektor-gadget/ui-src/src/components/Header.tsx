@@ -1,4 +1,5 @@
-import { Button } from '@flanksource/clicky-ui'
+import { useState } from 'react'
+import { Button, Modal } from '@flanksource/clicky-ui'
 import { CheckCircle2, CircleAlert, Play, Radar, RefreshCw } from 'lucide-react'
 import type { Status } from '../types'
 import { pluginBuildDate, pluginVersion } from '../version'
@@ -11,6 +12,7 @@ type HeaderProps = {
 }
 
 export function Header({ status, canStart, onStartTrace, onRefresh }: HeaderProps) {
+  const [manifestOpen, setManifestOpen] = useState(false)
   const problems = status?.problems?.join(' ')
   const statusLabel = status?.ready
     ? 'Ready'
@@ -55,9 +57,16 @@ export function Header({ status, canStart, onStartTrace, onRefresh }: HeaderProp
 
       {!status?.ready && (
         <div className="status-strip">
-          Inspektor Gadget must be installed. The plugin expects the <code>gadget</code> daemonset
-          to be installed in <code>{status?.namespace || 'gadget'}</code> namespace with pod label:{' '}
-          <code>k8s-app=gadget</code>.
+          <span>
+            Inspektor Gadget must be installed. The plugin expects the <code>gadget</code> daemonset
+            to be installed in <code>{status?.namespace || 'gadget'}</code> namespace with pod label:{' '}
+            <code>k8s-app=gadget</code>.
+          </span>
+          {status?.manifest && (
+            <Button variant="outline" size="sm" onClick={() => setManifestOpen(true)} type="button">
+              Show manifest
+            </Button>
+          )}
         </div>
       )}
 
@@ -67,6 +76,22 @@ export function Header({ status, canStart, onStartTrace, onRefresh }: HeaderProp
           <span>{problems}</span>
         </div>
       ) : null}
+
+      {manifestOpen && status?.manifest && (
+        <Modal
+          open
+          onClose={() => setManifestOpen(false)}
+          size="xl"
+          title="Inspektor Gadget install manifest"
+          footer={
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setManifestOpen(false)} type="button">Close</Button>
+            </div>
+          }
+        >
+          <pre className="manifest-preview">{status.manifest}</pre>
+        </Modal>
+      )}
     </header>
   )
 }

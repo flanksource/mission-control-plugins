@@ -35,7 +35,7 @@ The plugin exposes a curated list of Inspektor Gadget gadgets, including:
 
 | Operation      | Purpose                                                         |
 | -------------- | --------------------------------------------------------------- |
-| `status`       | Check Inspektor Gadget deployment readiness.                    |
+| `status`       | Check Inspektor Gadget deployment readiness and return the install manifest when it is missing. |
 | `traces-list`  | List supported gadgets.                                         |
 | `trace-start`  | Start a bounded trace session for the selected resource.        |
 | `trace-stop`   | Stop a running trace session.                                   |

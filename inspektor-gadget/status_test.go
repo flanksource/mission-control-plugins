@@ -17,6 +17,8 @@ var _ = ginkgo.Describe("status", func() {
 		Expect(status.Installed).To(BeFalse())
 		Expect(status.Ready).To(BeFalse())
 		Expect(status.Problems).To(ContainElement("Inspektor Gadget namespace is missing"))
+		Expect(status.Manifest).To(ContainSubstring("kind: DaemonSet"))
+		Expect(status.Manifest).To(ContainSubstring("inspektor-gadget"))
 	})
 
 	ginkgo.It("reports a ready daemonset", func() {
@@ -37,5 +39,6 @@ var _ = ginkgo.Describe("status", func() {
 		Expect(status.Ready).To(BeTrue())
 		Expect(status.Version).To(Equal(defaultIGTag))
 		Expect(status.Problems).To(BeEmpty())
+		Expect(status.Manifest).To(BeEmpty())
 	})
 })

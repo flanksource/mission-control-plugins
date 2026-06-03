@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
+	igresources "github.com/inspektor-gadget/inspektor-gadget/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +24,7 @@ type StatusResponse struct {
 	ReadyPods     int32    `json:"readyPods,omitempty"`
 	AvailablePods int32    `json:"availablePods,omitempty"`
 	Problems      []string `json:"problems,omitempty"`
+	Manifest      string   `json:"manifest,omitempty"`
 }
 
 func (p *InspektorGadgetPlugin) status(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -38,6 +40,7 @@ func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, exp
 	if _, err := cli.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{}); err != nil {
 		if apierrors.IsNotFound(err) {
 			out.Problems = append(out.Problems, "Inspektor Gadget namespace is missing")
+			out.Manifest = gadgetManifest(expectedTag)
 			return out
 		}
 		out.Problems = append(out.Problems, "namespace check failed: "+err.Error())
@@ -47,6 +50,7 @@ func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, exp
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			out.Problems = append(out.Problems, "Inspektor Gadget DaemonSet is missing")
+			out.Manifest = gadgetManifest(expectedTag)
 			return out
 		}
 		out.Problems = append(out.Problems, "DaemonSet check failed: "+err.Error())
@@ -65,6 +69,13 @@ func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, exp
 		out.Problems = append(out.Problems, fmt.Sprintf("Inspektor Gadget version (%s) installed in the cluster doesn't match the required version (%s) by the plugin", out.Version, expectedTag))
 	}
 	return out
+}
+
+func gadgetManifest(tag string) string {
+	if tag == "" {
+		tag = defaultIGTag
+	}
+	return strings.ReplaceAll(igresources.GadgetDeployment, ":latest", ":"+tag)
 }
 
 func fillDaemonSetStatus(out *StatusResponse, ds *appsv1.DaemonSet) {
