@@ -686,8 +686,8 @@ function WidgetBadge({ gadget, rows, rawCount }: { gadget: GadgetSpec; rows: Eve
     <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       <span className="rounded-full border border-border bg-muted px-2 py-0.5 font-medium text-foreground">{label}</span>
       <span>{detail}</span>
-      {cpu != null && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-700">max CPU {formatPercent(cpu)}</span>}
-      {rss != null && <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-sky-700">max RSS {formatBytes(rss)}</span>}
+      {cpu != null && <span className="metric-badge metric-badge-amber">max CPU {formatPercent(cpu)}</span>}
+      {rss != null && <span className="metric-badge metric-badge-sky">max RSS {formatBytes(rss)}</span>}
     </div>
   );
 }
