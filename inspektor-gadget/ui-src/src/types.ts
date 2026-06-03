@@ -45,6 +45,7 @@ export type Status = {
   desired?: number;
   readyPods?: number;
   problems?: string[];
+  manifest?: string;
 };
 
 export type Session = {
