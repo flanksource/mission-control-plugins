@@ -27,18 +27,30 @@ agent.Listen(agent.Options{
 For pprof, mount the standard handlers on a localhost-only admin listener, for
 example `127.0.0.1:6060/debug/pprof`.
 
-If no explicit ports are provided, the plugin tries readable gops port files,
-then configured/default gops ports. It also probes `/debug/pprof/` on configured
-and declared Kubernetes `containerPort` values for the selected container. gops
-and pprof can run on different ports; the plugin creates separate pod
-port-forwards for each endpoint.
+If no explicit gops port is provided, the plugin tries readable gops port
+files first. When multiple gops port files are present, an explicit `pid`
+selects that process; otherwise the lowest PID is selected. If no readable port
+file is found, the plugin falls back to configured/default gops ports.
 
-The session-create request can provide `gopsPort`, `pprofPort`, and
-`pprofBasePath` per session, so the same plugin installation can attach to pods
-with different diagnostics ports.
+For pprof, the plugin probes `/debug/pprof/` on configured and declared
+Kubernetes `containerPort` values for the selected container. gops and pprof can
+run on different ports; the plugin creates separate pod port-forwards for each
+endpoint.
+
+The session-create request can provide `pid`, `gopsPort`, `gopsConfigDir`,
+`pprofPort`, and `pprofBasePath` per session, so the same plugin installation
+can attach to pods with different diagnostics ports.
 
 The plugin reaches these localhost-only ports with Kubernetes pod port-forward,
 so the target process does not need to bind to `0.0.0.0`.
+
+## Caveats
+
+### Gops port auto discovery
+
+- we exec into the pod to discover the appropriate gops port. If the pod doesn't have `sh` installed, this will fail.
+- If multiple gops agents are running, we'll pick the one with the lowest `pid`.
+- If the `GOPS_CONFIG_DIR` is set to a root owned directory, ensure that the pod has `securityContext.readOnlyRootFilesystem: false`
 
 ## Build and test
 

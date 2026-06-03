@@ -145,17 +145,20 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 	if !useGops {
 		diagnostics = append(diagnostics, "gops disabled by request")
 	}
+
 	dirs := append([]string{}, p.settings.GopsConfigDirs...)
 	if params.GopsConfigDir != "" {
 		dirs = append([]string{params.GopsConfigDir}, dirs...)
 	}
+
 	if useGops && gopsPort == 0 {
 		discoverCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
+
 		procs, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
 		if err != nil {
 			diagnostics = append(diagnostics, err.Error())
-		} else if proc, ok := selectGopsProcessForTarget(procs, pid, target); ok {
+		} else if proc, ok := selectGopsProcess(procs, pid); ok {
 			gopsPort = proc.Port
 			pid = proc.PID
 			diagnostics = append(diagnostics, fmt.Sprintf("discovered gops pid=%d port=%d", proc.PID, proc.Port))
