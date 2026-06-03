@@ -11,7 +11,7 @@ import (
 
 	dutylogs "github.com/flanksource/duty/logs"
 	dutytypes "github.com/flanksource/duty/types"
-	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
+	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,10 +37,16 @@ func (fakeHost) GetConnectionByType(context.Context, sdk.ConnectionType) (*plugi
 func (fakeHost) GetConnectionForConfig(context.Context, string) (*pluginpb.ResolvedConnection, error) {
 	panic("not implemented")
 }
+func (fakeHost) GetConnectionByID(context.Context, string) (*pluginpb.ResolvedConnection, error) {
+	panic("not implemented")
+}
 func (fakeHost) GetConnectionByLabel(context.Context, string) (*pluginpb.ResolvedConnection, error) {
 	panic("not implemented")
 }
 func (fakeHost) Log(context.Context, string, string, map[string]string) error {
+	panic("not implemented")
+}
+func (fakeHost) InvokePlugin(context.Context, string, string, string, json.RawMessage) (*pluginpb.InvokeResponse, error) {
 	panic("not implemented")
 }
 func (fakeHost) WriteArtifact(context.Context, *pluginpb.Artifact) (*pluginpb.ArtifactRef, error) {

@@ -11,7 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	pluginpb "github.com/flanksource/incident-commander/plugin/proto"
+	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
