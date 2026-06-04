@@ -81,8 +81,12 @@ func (p *KubernetesLogsPlugin) Operations() []sdk.Operation {
 				Description: "Resolve a config item to its Pods, walking workload ancestors.",
 				Scope:       "config",
 				ResultMime:  sdk.ClickyResultMimeType,
+				Http: []*pluginpb.HTTPBinding{
+					{Method: http.MethodGet},
+				},
 			},
-			Handler: p.listPods,
+			Handler:     p.listPods,
+			HTTPHandler: http.HandlerFunc(p.httpListPods),
 		},
 		{
 			Def: &pluginpb.OperationDef{
@@ -104,9 +108,9 @@ func (p *KubernetesLogsPlugin) Operations() []sdk.Operation {
 // `tail` button. PostProcess mirrors the playbook `logs` action shape so
 // CEL match expressions and dedup/window settings work the same way.
 type TailParams struct {
-	Container   string             `json:"container,omitempty"`
-	TailLines   int64              `json:"tailLines,omitempty"`
-	Previous    bool               `json:"previous,omitempty"`
+	Container   string          `json:"container,omitempty"`
+	TailLines   int64           `json:"tailLines,omitempty"`
+	Previous    bool            `json:"previous,omitempty"`
 	PostProcess LogsPostProcess `json:"postProcess,omitempty"`
 }
 
@@ -154,24 +158,5 @@ func (p *KubernetesLogsPlugin) listPods(ctx context.Context, req sdk.InvokeCtx) 
 	if err != nil {
 		return nil, err
 	}
-	type Row struct {
-		Namespace string `json:"namespace"`
-		Pod       string `json:"pod"`
-		Phase     string `json:"phase"`
-		OwnedBy   string `json:"ownedBy,omitempty"`
-	}
-	out := make([]Row, 0, len(pods))
-	for _, pod := range pods {
-		owned := ""
-		if len(pod.OwnerReferences) > 0 {
-			owned = fmt.Sprintf("%s/%s", pod.OwnerReferences[0].Kind, pod.OwnerReferences[0].Name)
-		}
-		out = append(out, Row{
-			Namespace: pod.Namespace,
-			Pod:       pod.Name,
-			Phase:     string(pod.Status.Phase),
-			OwnedBy:   owned,
-		})
-	}
-	return out, nil
+	return podRows(pods), nil
 }
