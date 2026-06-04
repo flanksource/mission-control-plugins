@@ -18,6 +18,37 @@ import (
 	"github.com/flanksource/incident-commander/plugin/sdk"
 )
 
+// httpListPods resolves the selected config item to Pods and returns the same
+// row shape as the list-pods operation.
+func (p *KubernetesLogsPlugin) httpListPods(w http.ResponseWriter, r *http.Request) {
+	configID := r.URL.Query().Get("config_id")
+	if configID == "" {
+		configID = sdk.ConfigItemIDFromContext(r.Context())
+	}
+	if configID == "" {
+		http.Error(w, "config_id required", http.StatusBadRequest)
+		return
+	}
+
+	host := sdk.HostClientFromContext(r.Context())
+	cli, err := p.clients.For(r.Context(), host, configID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
+	pods, err := resolvePods(r.Context(), cli, host, configID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(podRows(pods)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // httpLogs fetches pod logs. By default it behaves like `kubectl logs`:
 // return the requested tail as a finite JSON array and close. With
 // follow=true it behaves like `kubectl logs -f --tail=0` and streams new lines
@@ -156,6 +187,30 @@ func followHTTPLogs(ctx context.Context, cli kubernetes.Interface, w http.Respon
 	}
 	wg.Wait()
 	close(done)
+}
+
+type podRow struct {
+	Namespace string `json:"namespace"`
+	Pod       string `json:"pod"`
+	Phase     string `json:"phase"`
+	OwnedBy   string `json:"ownedBy,omitempty"`
+}
+
+func podRows(pods []corev1.Pod) []podRow {
+	out := make([]podRow, 0, len(pods))
+	for _, pod := range pods {
+		owned := ""
+		if len(pod.OwnerReferences) > 0 {
+			owned = fmt.Sprintf("%s/%s", pod.OwnerReferences[0].Kind, pod.OwnerReferences[0].Name)
+		}
+		out = append(out, podRow{
+			Namespace: pod.Namespace,
+			Pod:       pod.Name,
+			Phase:     string(pod.Status.Phase),
+			OwnedBy:   owned,
+		})
+	}
+	return out
 }
 
 func httpLogLabels(namespace, pod, container string) map[string]string {

@@ -5,4 +5,4 @@ package main
 // uiChecksum is the sha256 of every file embedded under ui/.
 // Regenerated on every `task build:plugin:kubernetes-logs` or
 // `go generate ./kubernetes-logs/...`.
-const uiChecksum = "59141d052721b8b39d99e60095813bd8de426afcd880fe144a40448db501b7ed"
+const uiChecksum = "e3040aff694d63843ca241f353a96702077dff7a918c837b9d9c2ba2627cd919"
