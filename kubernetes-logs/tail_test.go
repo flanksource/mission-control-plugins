@@ -121,6 +121,37 @@ func TestHTTPLogsNonFollowReturnsJSONOnce(t *testing.T) {
 	}
 }
 
+func TestGRPCLogsSnapshotResolvesConfigItem(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "api-1", Namespace: "prod"},
+		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}, {Name: "sidecar"}}},
+	}
+	cli := fake.NewSimpleClientset(pod)
+	plugin := &KubernetesLogsPlugin{clients: clientCache{entries: map[string]kubernetes.Interface{"cfg": cli}}}
+
+	res, err := plugin.logs(context.Background(), sdk.InvokeCtx{
+		Host: fakeHost{items: map[string]*pluginpb.ConfigItem{
+			"cfg": {Name: "api-1", Type: "Kubernetes::Pod", Tags: map[string]string{"namespace": "prod"}},
+		}},
+		ParamsJSON: []byte(`{"config_id":"cfg","tailLines":50,"container":"app"}`),
+	})
+	if err != nil {
+		t.Fatalf("logs returned error: %v", err)
+	}
+	rows, ok := res.([]sseLogLine)
+	if !ok {
+		t.Fatalf("expected []sseLogLine, got %T", res)
+	}
+	if len(rows) != 1 || rows[0].Container != "app" {
+		t.Fatalf("expected app log row, got %#v", rows)
+	}
+
+	opts := logOptions(cli)
+	if len(opts) != 1 || opts[0].Follow || opts[0].TailLines == nil || *opts[0].TailLines != 50 || opts[0].Container != "app" {
+		t.Fatalf("expected snapshot tailLines=50 container=app, got %#v", opts)
+	}
+}
+
 func TestHTTPLogsFollowStreamsSSEWithTailZero(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "api-1", Namespace: "prod"},

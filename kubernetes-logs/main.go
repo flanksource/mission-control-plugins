@@ -85,6 +85,7 @@ func (p *KubernetesLogsPlugin) Operations() []sdk.Operation {
 					{Method: http.MethodGet},
 				},
 			},
+			Handler:     p.logs,
 			HTTPHandler: http.HandlerFunc(p.httpLogs),
 		},
 	}

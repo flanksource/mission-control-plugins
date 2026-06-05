@@ -98,6 +98,163 @@ func (p *GolangPlugin) httpProfile(w http.ResponseWriter, r *http.Request) {
 	writeProfileDownload(w, sess.ID, kind, kind, source, data)
 }
 
+type ProfileFetchParams struct {
+	Path             string `json:"path,omitempty"`
+	SessionID        string `json:"sessionId,omitempty"`
+	RunID            string `json:"runId,omitempty"`
+	Kind             string `json:"kind,omitempty"`
+	View             string `json:"view,omitempty"`
+	SampleIndex      string `json:"sampleIndex,omitempty"`
+	SampleIndexSnake string `json:"sample_index,omitempty"`
+}
+
+type ProfileFetchResponse struct {
+	SessionID   string          `json:"sessionId"`
+	RunID       string          `json:"runId,omitempty"`
+	Name        string          `json:"name,omitempty"`
+	Kind        string          `json:"kind,omitempty"`
+	Source      string          `json:"source,omitempty"`
+	View        string          `json:"view,omitempty"`
+	ContentType string          `json:"contentType"`
+	Filename    string          `json:"filename,omitempty"`
+	Bytes       int             `json:"bytes,omitempty"`
+	Encoding    string          `json:"encoding,omitempty"`
+	Data        []byte          `json:"data,omitempty"` // JSON encodes this as base64.
+	Text        string          `json:"text,omitempty"`
+	Flamegraph  *FlamegraphData `json:"flamegraph,omitempty"`
+}
+
+func (p *GolangPlugin) profileFetch(ctx context.Context, req sdk.InvokeCtx) (any, error) {
+	var params ProfileFetchParams
+	if len(strings.TrimSpace(string(req.ParamsJSON))) > 0 {
+		if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
+			return nil, fmt.Errorf("decode params: %w", err)
+		}
+	}
+
+	rest := profilePathFromParams(params)
+	id, tail, _ := strings.Cut(rest, "/")
+	if id == "" || tail == "" {
+		return nil, fmt.Errorf("expected path /profiles/{sessionID}/{runID|heap|cpu|trace}")
+	}
+	sess, err := p.getSessionForConfig(id, req.ConfigItemID)
+	if err != nil {
+		return nil, err
+	}
+
+	runIDOrKind, subPath, _ := strings.Cut(tail, "/")
+	if params.View != "" && subPath == "" {
+		subPath = params.View
+	}
+	sampleIndex := params.SampleIndex
+	if sampleIndex == "" {
+		sampleIndex = params.SampleIndexSnake
+	}
+
+	if run, ok := p.profiles.Get(runIDOrKind); ok {
+		if run.SessionID != sess.ID {
+			return nil, fmt.Errorf("profile run does not belong to session")
+		}
+		snapshot := run.Snapshot()
+		if snapshot.State != "completed" {
+			return nil, fmt.Errorf("profile run is not completed")
+		}
+		if subPath != "" {
+			return profileViewResponse(sess.ID, run.ID, snapshot.Kind, normalizeProfileView(subPath), sampleIndex, run)
+		}
+		data := run.Data()
+		if len(data) == 0 {
+			return nil, fmt.Errorf("profile run has no data")
+		}
+		return profileBytesResponse(sess.ID, run.ID, run.ID, snapshot.Kind, snapshot.Source, data), nil
+	}
+
+	kind := normalizeProfileKind(runIDOrKind)
+	if kind == "" {
+		return nil, fmt.Errorf("expected path /profiles/{sessionID}/{runID|heap|cpu|trace}")
+	}
+	data, source, err := collectProfile(ctx, sess, kind, p.settings.MaxProfileSec)
+	if err != nil {
+		return nil, err
+	}
+	return profileBytesResponse(sess.ID, "", kind, kind, source, data), nil
+}
+
+func profilePathFromParams(params ProfileFetchParams) string {
+	path := strings.Trim(strings.TrimSpace(params.Path), "/")
+	path = strings.TrimPrefix(path, "__mc/operations/"+OpHTTPProfiles+"/")
+	path = strings.TrimPrefix(path, OpHTTPProfiles+"/")
+	if path != "" {
+		return strings.Trim(path, "/")
+	}
+	second := params.RunID
+	if second == "" {
+		second = params.Kind
+	}
+	if params.SessionID == "" || second == "" {
+		return ""
+	}
+	parts := []string{params.SessionID, second}
+	if params.View != "" {
+		parts = append(parts, params.View)
+	}
+	return strings.Join(parts, "/")
+}
+
+func normalizeProfileView(subPath string) string {
+	return strings.Trim(strings.TrimPrefix(subPath, "ui/"), "/")
+}
+
+func profileViewResponse(sessionID, runID, kind, view, sampleIndex string, run *ProfileRun) (ProfileFetchResponse, error) {
+	switch view {
+	case "flamegraph", "flamegraph-data":
+		data, err := buildFlamegraphData(run, sampleIndex)
+		if err != nil {
+			return ProfileFetchResponse{}, err
+		}
+		return ProfileFetchResponse{
+			SessionID:   sessionID,
+			RunID:       runID,
+			Kind:        kind,
+			View:        view,
+			ContentType: "application/json",
+			Flamegraph:  data,
+		}, nil
+	case "top":
+		out, err := renderPprofTopText(run, sampleIndex)
+		if err != nil {
+			return ProfileFetchResponse{}, err
+		}
+		return ProfileFetchResponse{
+			SessionID:   sessionID,
+			RunID:       runID,
+			Kind:        kind,
+			View:        view,
+			ContentType: "text/plain; charset=utf-8",
+			Text:        out,
+		}, nil
+	case "graph":
+		return ProfileFetchResponse{}, fmt.Errorf("graph SVG rendering is not available; use flamegraph-data")
+	default:
+		return ProfileFetchResponse{}, fmt.Errorf("unsupported profile view")
+	}
+}
+
+func profileBytesResponse(sessionID, runID, name, kind, source string, data []byte) ProfileFetchResponse {
+	return ProfileFetchResponse{
+		SessionID:   sessionID,
+		RunID:       runID,
+		Name:        name,
+		Kind:        kind,
+		Source:      source,
+		ContentType: profileContentType(kind),
+		Filename:    profileFilename(sessionID, name, kind),
+		Bytes:       len(data),
+		Encoding:    "base64",
+		Data:        data,
+	}
+}
+
 func (p *GolangPlugin) serveStaticProfileView(w http.ResponseWriter, r *http.Request, run *ProfileRun, subPath string) bool {
 	view := strings.Trim(strings.TrimPrefix(subPath, "ui/"), "/")
 	sampleIndex := r.URL.Query().Get("si")
@@ -408,11 +565,15 @@ func operationSubpath(r *http.Request, operation string) string {
 }
 
 func writeProfileDownload(w http.ResponseWriter, sessionID, name, kind, source string, data []byte) {
-	filename := fmt.Sprintf("%s-%s-%s.%s", pluginName, sessionID, name, profileExtension(kind))
+	filename := profileFilename(sessionID, name, kind)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("X-Diagnostics-Source", source)
 	w.Header().Set("Content-Type", profileContentType(kind))
 	_, _ = w.Write(data)
+}
+
+func profileFilename(sessionID, name, kind string) string {
+	return fmt.Sprintf("%s-%s-%s.%s", pluginName, sessionID, name, profileExtension(kind))
 }
 
 func profileExtension(kind string) string {
