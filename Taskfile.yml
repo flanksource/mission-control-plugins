@@ -391,11 +391,20 @@ tasks:
     vars:
       PLUGIN_PATH:
         sh: echo "${MISSION_CONTROL_PLUGIN_PATH:-$HOME/.mission-control/plugins}"
+      VERSIONED_PLUGIN_PATH: "{{.PLUGIN_PATH}}/{{.PLUGIN}}/{{.VERSION}}"
+      RESOLVED_PLUGIN_BINARY_PATH:
+        sh: |
+          if [ -n '{{.PLUGIN_BINARY_PATH | default ""}}' ]; then
+            printf '%s\n' '{{.PLUGIN_BINARY_PATH}}'
+          else
+            printf '%s\n' '{{.PLUGIN_PATH}}/{{.PLUGIN}}/{{.VERSION}}/{{.PLUGIN}}'
+          fi
+      LINK_LATEST: '{{.LINK_LATEST | default "true"}}'
       TARGET_GOOS: '{{.TARGET_GOOS | default ""}}'
       TARGET_GOARCH: '{{.TARGET_GOARCH | default ""}}'
       DEBUG: '{{.DEBUG | default "false"}}'
     cmds:
-      - mkdir -p {{.PLUGIN_PATH}}
+      - mkdir -p $(dirname {{.RESOLVED_PLUGIN_BINARY_PATH}})
       - |
         set -euo pipefail
         goos="{{.TARGET_GOOS}}"
@@ -406,8 +415,26 @@ tasks:
         if [ -n "$goos" ]; then env_args+=(GOOS="$goos"); fi
         if [ -n "$goarch" ]; then env_args+=(GOARCH="$goarch"); fi
         if [ "$debug" = "true" ]; then build_args+=(-gcflags "all=-N -l"); fi
-        (cd {{.PLUGIN}} && env "${env_args[@]}" go build "${build_args[@]}" -o {{.PLUGIN_PATH}}/{{.PLUGIN}} -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" .)
-      - echo "Installed {{.PLUGIN_PATH}}/{{.PLUGIN}} version={{.VERSION}} built={{.BUILD_DATE}}"
+        (cd {{.PLUGIN}} && env "${env_args[@]}" go build "${build_args[@]}" -o {{.RESOLVED_PLUGIN_BINARY_PATH}} -ldflags "-X 'main.Version={{.VERSION}}' -X 'main.BuildDate={{.BUILD_DATE}}'" .)
+      - |
+        set -euo pipefail
+        if [ "{{.LINK_LATEST}}" != "true" ]; then
+          exit 0
+        fi
+        latest_path="{{.PLUGIN_PATH}}/{{.PLUGIN}}/latest"
+        if [ -L "$latest_path" ] || [ -e "$latest_path" ]; then
+          if [ -d "$latest_path" ] && [ ! -L "$latest_path" ]; then
+            mv "$latest_path" "${latest_path}.bak.$(date +%s)"
+          else
+            unlink "$latest_path"
+          fi
+        fi
+        ln -s "{{.VERSION}}" "$latest_path"
+      - echo "Installed {{.RESOLVED_PLUGIN_BINARY_PATH}} version={{.VERSION}} built={{.BUILD_DATE}}"
+      - |
+        if [ "{{.LINK_LATEST}}" = "true" ]; then
+          echo "Latest symlink {{.PLUGIN_PATH}}/{{.PLUGIN}}/latest -> {{.VERSION}}"
+        fi
     sources:
       - "{{.PLUGIN}}/**/*.go"
       - "{{.PLUGIN}}/ui/**"
@@ -415,7 +442,24 @@ tasks:
       - "{{.PLUGIN}}/go.mod"
       - "{{.PLUGIN}}/go.sum"
     generates:
-      - "{{.PLUGIN_PATH}}/{{.PLUGIN}}"
+      - "{{.RESOLVED_PLUGIN_BINARY_PATH}}"
+
+  build:plugin:ci:
+    desc: Build a plugin binary at the legacy flat CI path (PLUGIN=<name>)
+    requires:
+      vars: [PLUGIN]
+    vars:
+      PLUGIN_PATH:
+        sh: echo "${MISSION_CONTROL_PLUGIN_PATH:-$HOME/.mission-control/plugins}"
+    cmds:
+      - task: plugin:build
+        vars:
+          PLUGIN: "{{.PLUGIN}}"
+          PLUGIN_BINARY_PATH: "{{.PLUGIN_PATH}}/{{.PLUGIN}}"
+          LINK_LATEST: "false"
+          TARGET_GOOS: '{{.TARGET_GOOS | default ""}}'
+          TARGET_GOARCH: '{{.TARGET_GOARCH | default ""}}'
+          DEBUG: '{{.DEBUG | default "false"}}'
 
   lint:plugin:arthas:
     desc: Lint the arthas plugin
