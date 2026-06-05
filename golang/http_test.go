@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/flanksource/incident-commander/plugin/sdk"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -42,6 +44,27 @@ var _ = ginkgo.Describe("HTTP handler", func() {
 		Expect(rec.Body.String()).To(Equal("profile-bytes"))
 		Expect(rec.Header().Get("X-Diagnostics-Source")).To(Equal("pprof"))
 		Expect(rec.Header().Get("Content-Disposition")).To(ContainSubstring(pluginName))
+	})
+
+	ginkgo.It("serves completed profile runs through the unary handler", func() {
+		p := newPlugin()
+		sess := NewSession("cfg", "default", "pod", "app", "app-0", "app", nil)
+		p.sessions.Add(sess)
+		run, _ := NewProfileRun(sess.ID, "heap", "pprof", 30)
+		run.MarkDone([]byte("profile-bytes"), "pprof", nil)
+		p.profiles.Add(run)
+
+		res, err := p.profileFetch(context.Background(), sdk.InvokeCtx{
+			ConfigItemID: "cfg",
+			ParamsJSON:   []byte(`{"path":"` + sess.ID + `/` + run.ID + `"}`),
+		})
+
+		Expect(err).ToNot(HaveOccurred())
+		out, ok := res.(ProfileFetchResponse)
+		Expect(ok).To(BeTrue())
+		Expect(out.Data).To(Equal([]byte("profile-bytes")))
+		Expect(out.Encoding).To(Equal("base64"))
+		Expect(out.ContentType).To(Equal("application/vnd.google.protobuf"))
 	})
 
 	ginkgo.It("does not download running profile runs", func() {

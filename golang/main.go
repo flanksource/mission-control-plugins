@@ -141,7 +141,7 @@ func (p *GolangPlugin) Operations() []sdk.Operation {
 	for _, d := range defs {
 		switch d.Name {
 		case OpHTTPProfiles:
-			out = append(out, sdk.Operation{Def: d, HTTPHandler: http.HandlerFunc(p.httpProfile)})
+			out = append(out, sdk.Operation{Def: d, Handler: p.profileFetch, HTTPHandler: http.HandlerFunc(p.httpProfile)})
 		default:
 			if h, ok := handlers[d.Name]; ok {
 				out = append(out, sdk.Operation{Def: d, Handler: h, HTTPHandler: p.httpInvoke(d.Name, h)})
