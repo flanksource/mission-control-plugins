@@ -404,7 +404,7 @@ body {
   color: var(--ig-selected-fg);
 }
 
-.diagnostics, .session-details {
+.diagnostics {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -470,27 +470,57 @@ body {
 .sessions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
   overflow: auto;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ig-muted) 28%, var(--ig-card));
 }
 
 .sessions.collapsed {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  align-self: start;
   align-items: center;
-  padding: 8px 5px;
+  justify-content: center;
+  padding: 4px;
   overflow: hidden;
+  border-radius: 12px;
+  background: var(--ig-card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
 .sessions-heading {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 32px;
+  min-height: 34px;
 }
 
 .sessions.collapsed .sessions-heading {
+  width: 100%;
+  min-height: 32px;
   justify-content: center;
+}
+
+.sessions-title-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sessions-subtitle {
+  color: var(--ig-muted-fg);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.sessions-toggle {
+  flex: 0 0 auto;
 }
 
 .panel-title {
@@ -501,6 +531,7 @@ body {
 
 .sessions-heading .panel-title {
   margin: 0;
+  line-height: 1.2;
 }
 
 .resize-handle {
@@ -524,114 +555,175 @@ body {
   background: var(--ig-primary);
 }
 
+.session-list {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-empty {
+  border: 1px dashed var(--ig-border);
+  border-radius: 10px;
+  background: var(--ig-card);
+  padding: 18px 10px;
+  text-align: center;
+}
+
 .session {
   display: grid;
   width: 100%;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 34px;
   align-items: stretch;
   padding: 0;
   border: 1px solid var(--ig-border);
-  border-radius: 6px;
-  border-color: var(--ig-border);
+  border-radius: 12px;
   background: var(--ig-card);
   color: var(--ig-fg);
   font-size: 12px;
   text-align: left;
   cursor: default;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.session:hover {
+  border-color: color-mix(in srgb, var(--ig-primary) 45%, var(--ig-border));
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.06);
 }
 
 .session.selected {
-  border-color: var(--ig-primary);
-  background: var(--ig-selected-bg);
+  border-color: color-mix(in srgb, var(--ig-primary) 70%, var(--ig-border));
+  background: color-mix(in srgb, var(--ig-primary) 10%, var(--ig-card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ig-primary) 20%, transparent);
 }
 
 .session-main {
   display: flex;
-  min-height: 42px;
+  min-width: 0;
+  min-height: 68px;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 9px;
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 5px 8px;
+  padding: 10px;
   text-align: left;
 }
 
-.session-main span {
+.session-title-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.session-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ig-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ig-muted) 50%, var(--ig-card));
+  color: var(--ig-muted-fg);
+}
+
+.session-name-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-name,
+.session-target,
+.session-count,
+.session-countdown {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.session-title-row {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto auto;
-  gap: 6px;
-  align-items: center;
-}
-
 .session-name {
-  font-weight: 600;
+  color: var(--ig-fg);
+  font-weight: 650;
+  line-height: 1.2;
 }
 
-.session-state {
-  border-radius: 999px;
-  background: var(--ig-muted);
+.session-target {
   color: var(--ig-muted-fg);
-  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 11px;
-  text-transform: capitalize;
+  line-height: 1.25;
 }
 
-.session-state.running {
-  background: var(--ig-ok-bg);
-  color: var(--ig-ok-fg);
-}
-
-.session-state.failed {
-  background: var(--ig-error-bg);
-  color: var(--ig-error-fg);
-}
-
-.session-state.completed {
-  background: var(--ig-info-bg);
-  color: var(--ig-info-fg);
+.session-meta-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 36px;
 }
 
 .session-count {
-  min-width: 22px;
-  border-radius: 999px;
-  background: var(--ig-border);
-  color: var(--ig-fg);
-  padding: 1px 7px;
-  text-align: center;
+  color: var(--ig-muted-fg);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .session-countdown {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 4px;
   color: var(--ig-muted-fg);
-  padding-left: 22px;
   font-size: 11px;
 }
 
+.session-countdown.muted {
+  justify-content: flex-end;
+}
+
 .session-stop {
-  width: 32px;
-  min-height: 34px;
+  width: 34px;
+  min-height: 44px;
+  align-self: stretch;
   border-width: 0 0 0 1px;
   border-color: var(--ig-border);
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 11px 11px 0;
   background: transparent;
   color: var(--ig-error-fg);
   padding: 0;
 }
 
 .session-details {
-  margin-top: 12px;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  border: 1px solid var(--ig-border);
+  border-radius: 12px;
+  background: var(--ig-card);
+  padding: 12px;
+}
+
+.session-details-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.session-details-heading .panel-title {
+  margin: 0;
 }
 
 .pod-list {
