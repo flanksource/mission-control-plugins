@@ -7,9 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	dutylogs "github.com/flanksource/duty/logs"
 	dutytypes "github.com/flanksource/duty/types"
 	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -54,59 +52,6 @@ func (fakeHost) WriteArtifact(context.Context, *pluginpb.Artifact) (*pluginpb.Ar
 }
 func (fakeHost) ReadArtifact(context.Context, *pluginpb.ArtifactRef) (*pluginpb.Artifact, error) {
 	panic("not implemented")
-}
-
-func TestTailOperationReadsPodLogs(t *testing.T) {
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "api-1", Namespace: "prod"},
-		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}},
-	}
-	cli := fake.NewSimpleClientset(pod)
-	plugin := &KubernetesLogsPlugin{clients: clientCache{entries: map[string]kubernetes.Interface{"cfg": cli}}}
-
-	params, err := json.Marshal(TailParams{TailLines: 25, Container: "app", Previous: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := plugin.tail(context.Background(), sdk.InvokeCtx{
-		ConfigItemID: "cfg",
-		ParamsJSON:   params,
-		Host: fakeHost{items: map[string]*pluginpb.ConfigItem{
-			"cfg": {Name: "api-1", Type: "Kubernetes::Pod", Tags: map[string]string{"namespace": "prod"}},
-		}},
-	})
-	if err != nil {
-		t.Fatalf("tail returned error: %v", err)
-	}
-
-	lines, ok := result.([]*dutylogs.LogLine)
-	if !ok {
-		t.Fatalf("expected []*LogLine, got %T", result)
-	}
-	if len(lines) != 1 || lines[0].Message != "fake logs" {
-		t.Fatalf("expected fake log line, got %#v", lines)
-	}
-	if lines[0].Host != "api-1" || lines[0].Source != "app" {
-		t.Fatalf("unexpected host/source: %s/%s", lines[0].Host, lines[0].Source)
-	}
-
-	var logOpts *corev1.PodLogOptions
-	for _, action := range cli.Actions() {
-		if action.GetVerb() == "get" && action.GetResource().Resource == "pods" && action.GetSubresource() == "log" {
-			generic, ok := action.(ktesting.GenericAction)
-			if !ok {
-				t.Fatalf("log action is %T, expected GenericAction", action)
-			}
-			logOpts = generic.GetValue().(*corev1.PodLogOptions)
-		}
-	}
-	if logOpts == nil {
-		t.Fatalf("expected pod log action, got actions: %#v", cli.Actions())
-	}
-	if logOpts.Container != "app" || logOpts.TailLines == nil || *logOpts.TailLines != 25 || !logOpts.Previous || !logOpts.Timestamps {
-		t.Fatalf("unexpected pod log options: %#v", logOpts)
-	}
 }
 
 func TestResolvePodsSupportsMatchExpressions(t *testing.T) {
@@ -221,20 +166,4 @@ func logOptions(cli *fake.Clientset) []*corev1.PodLogOptions {
 		}
 	}
 	return opts
-}
-
-func TestParseKubeLogLine(t *testing.T) {
-	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "api-1", Namespace: "prod"}}
-	line := parseKubeLogLine(pod, "app", "2026-06-02T12:13:14.123456789Z hello")
-
-	expected, err := time.Parse(time.RFC3339Nano, "2026-06-02T12:13:14.123456789Z")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !line.FirstObserved.Equal(expected) || line.Message != "hello" {
-		t.Fatalf("unexpected parsed line: %#v", line)
-	}
-	if line.Labels["namespace"] != "prod" || line.Labels["pod"] != "api-1" || line.Labels["container"] != "app" {
-		t.Fatalf("unexpected labels: %#v", line.Labels)
-	}
 }

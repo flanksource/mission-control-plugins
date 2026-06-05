@@ -11,8 +11,8 @@ matching pod.
 - An iframe UI that calls back into the host's operation API for `list-pods`,
   then calls the plugin's HTTP log endpoint for one-shot logs or follow-mode
   streaming.
-- Both the gRPC operation contract (`tail`, `list-pods`) and a non-trivial HTTP
-  contract (`/proxy/logs`) coexisting on the same plugin port.
+- The `list-pods` operation and HTTP log contract (`/proxy/logs`) coexisting on
+  the same plugin port.
 
 ## Build & install
 
@@ -25,23 +25,11 @@ kubectl apply -f kubernetes-logs/Plugin.yaml
 ## CLI
 
 ```sh
-# Tail the last 100 lines from every pod owned by a Deployment:
-mission-control plugin kubernetes-logs tail \
-  --config-id <deployment-config-uuid> \
-  --param tailLines=100
-
-# Just resolve which pods a workload maps to:
+# Resolve which pods a workload maps to:
 mission-control plugin kubernetes-logs list-pods --config-id <uuid>
 ```
 
 ## HTTP
-
-```sh
-curl -X POST -d '{"tailLines":50}' \
-  "$MISSION_CONTROL_URL/api/plugins/kubernetes-logs/invoke/tail?config_id=<uuid>"
-```
-
-Returns `application/clicky+json` log rows.
 
 ```sh
 # One-shot HTTP logs, equivalent to kubectl logs --tail=50:
