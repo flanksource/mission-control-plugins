@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -112,27 +113,13 @@ func (p *InspektorGadgetPlugin) traceStart(ctx context.Context, req sdk.InvokeCt
 	if err != nil {
 		return nil, err
 	}
-	pods, err := listRunningPodsForTarget(ctx, cli, TargetRef{Namespace: target.Namespace, Kind: target.Kind, Name: target.Name, Selector: target.Selector})
+	pods, selector, err := listRunningPodsAndSelectorForTarget(ctx, cli, TargetRef{Namespace: target.Namespace, Kind: target.Kind, Name: target.Name, Selector: target.Selector})
 	if err != nil {
 		return nil, fmt.Errorf("resolve pods: %w", err)
 	}
-	if target.Pod == "" {
-		if len(pods) == 0 {
-			return nil, fmt.Errorf("no ready pods found for %s/%s in namespace %s", target.Kind, target.Name, target.Namespace)
-		}
-		target.Pod = pods[0].Name
-		target.Node = pods[0].Node
-		if target.Container == "" && len(pods[0].Containers) == 1 {
-			target.Container = pods[0].Containers[0]
-		}
-	} else if len(pods) > 0 {
-		target.Node = pods[0].Node
-		if target.Container == "" && len(pods[0].Containers) == 1 {
-			target.Container = pods[0].Containers[0]
-		}
-	}
-	if target.Selector == nil && target.Pod == "" && len(pods) > 0 {
-		target.Selector = pods[0].Labels
+	target, err = resolveTraceTarget(target, pods, selector)
+	if err != nil {
+		return nil, err
 	}
 
 	options, err := normalizeTraceOptions(params)
@@ -205,16 +192,22 @@ func (p *InspektorGadgetPlugin) currentPods(ctx context.Context, req sdk.InvokeC
 
 func traceTargetInPods(target TraceTarget, pods []RunningPod) bool {
 	for _, pod := range pods {
-		if pod.Namespace != target.Namespace || pod.Name != target.Pod {
+		if pod.Namespace != target.Namespace {
 			continue
 		}
-		if target.Container == "" {
-			return true
+		if target.Pod != "" && pod.Name != target.Pod {
+			continue
 		}
-		for _, container := range pod.Containers {
-			if container == target.Container {
-				return true
+		if target.Pod == "" {
+			if len(target.Selector) > 0 && !labelsMatch(pod.Labels, target.Selector) {
+				continue
 			}
+			if len(target.Selector) == 0 && target.Name != "" && target.Kind != "" && !sameWorkloadOwner(target, pod) {
+				continue
+			}
+		}
+		if target.Container == "" || stringInSlice(target.Container, pod.Containers) {
+			return true
 		}
 	}
 	return false
@@ -249,6 +242,108 @@ func normalizeTraceOptions(params TraceStartParams) (map[string]any, error) {
 		options[k] = v
 	}
 	return options, nil
+}
+
+func resolveTraceTarget(target TraceTarget, pods []RunningPod, selector map[string]string) (TraceTarget, error) {
+	if len(pods) == 0 {
+		return TraceTarget{}, fmt.Errorf("no ready pods found for %s/%s in namespace %s", target.Kind, target.Name, target.Namespace)
+	}
+
+	if isPodKind(target.Kind) || target.Pod != "" {
+		pod := pods[0]
+		if target.Pod == "" {
+			target.Pod = pod.Name
+		} else {
+			selected, ok := runningPodByName(pods, target.Pod)
+			if !ok {
+				return TraceTarget{}, fmt.Errorf("pod %s/%s is not a ready pod for %s/%s", target.Namespace, target.Pod, target.Kind, target.Name)
+			}
+			pod = selected
+		}
+		target.Node = pod.Node
+		if target.Container == "" && len(pod.Containers) == 1 {
+			target.Container = pod.Containers[0]
+		}
+		return target, nil
+	}
+
+	if len(selector) > 0 {
+		target.Selector = selector
+	} else if len(target.Selector) == 0 && len(pods) == 1 {
+		target.Selector = pods[0].Labels
+	}
+	target.Node = strings.Join(uniquePodNodes(pods), ",")
+	if target.Container == "" {
+		target.Container = commonSingleContainer(pods)
+	}
+	return target, nil
+}
+
+func isPodKind(kind string) bool {
+	switch normalizeKind(kind) {
+	case "pod", "pods", "po":
+		return true
+	default:
+		return false
+	}
+}
+
+func runningPodByName(pods []RunningPod, name string) (RunningPod, bool) {
+	for _, pod := range pods {
+		if pod.Name == name {
+			return pod, true
+		}
+	}
+	return RunningPod{}, false
+}
+
+func uniquePodNodes(pods []RunningPod) []string {
+	seen := map[string]bool{}
+	nodes := make([]string, 0, len(pods))
+	for _, pod := range pods {
+		if pod.Node == "" || seen[pod.Node] {
+			continue
+		}
+		seen[pod.Node] = true
+		nodes = append(nodes, pod.Node)
+	}
+	sort.Strings(nodes)
+	return nodes
+}
+
+func commonSingleContainer(pods []RunningPod) string {
+	if len(pods) == 0 || len(pods[0].Containers) != 1 {
+		return ""
+	}
+	container := pods[0].Containers[0]
+	for _, pod := range pods[1:] {
+		if len(pod.Containers) != 1 || pod.Containers[0] != container {
+			return ""
+		}
+	}
+	return container
+}
+
+func labelsMatch(labels, selector map[string]string) bool {
+	for k, v := range selector {
+		if labels[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func sameWorkloadOwner(target TraceTarget, pod RunningPod) bool {
+	return normalizeKind(target.Kind) == normalizeKind(pod.OwnerKind) && target.Name == pod.OwnerName
+}
+
+func stringInSlice(value string, values []string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 func parseArgLines(lines []string) (map[string]any, error) {

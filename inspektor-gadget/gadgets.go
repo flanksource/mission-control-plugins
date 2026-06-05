@@ -141,22 +141,27 @@ func buildGadgetParams(target TraceTarget, options map[string]any) map[string]st
 	params := map[string]string{}
 	if target.Namespace != "" {
 		params["operator.KubeManager.namespace"] = target.Namespace
+		params["operator.KubeManager.k8s-namespace"] = target.Namespace
 		params["namespace"] = target.Namespace
 	}
 	if target.Pod != "" {
 		params["operator.KubeManager.podname"] = target.Pod
+		params["operator.KubeManager.k8s-podname"] = target.Pod
 		params["podname"] = target.Pod
 	}
 	if target.Container != "" {
 		params["operator.KubeManager.containername"] = target.Container
+		params["operator.KubeManager.k8s-containername"] = target.Container
 		params["containername"] = target.Container
 	}
 	if target.Node != "" {
 		params["node"] = target.Node
 	}
 	if len(target.Selector) > 0 && target.Pod == "" {
-		params["operator.KubeManager.selector"] = labelsParam(target.Selector)
-		params["selector"] = labelsParam(target.Selector)
+		selector := labelsParam(target.Selector)
+		params["operator.KubeManager.selector"] = selector
+		params["operator.KubeManager.k8s-selector"] = selector
+		params["selector"] = selector
 	}
 	for k, v := range options {
 		if k == "" || v == nil {
