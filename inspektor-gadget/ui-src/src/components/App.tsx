@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
 import {
+  Badge,
   Button,
   cn
 } from "@flanksource/clicky-ui";
@@ -49,7 +50,12 @@ export function App() {
   const [sessionsWidth, setSessionsWidth] = useState(320);
   const resizeCleanupRef = useRef<(() => void) | null>(null);
 
-  async function refresh() {
+  async function loadSessionEvents(sessionId: string) {
+    const nextEvents = await invoke<TraceEvent[]>("trace-events", { id: sessionId });
+    return (nextEvents ?? []).slice(-1000);
+  }
+
+  async function refresh(preferredSessionId = selectedSession) {
     setError("");
     const [nextStatus, nextGadgets, nextSessions] = await Promise.all([
       invoke<Status>("status"),
@@ -59,10 +65,16 @@ export function App() {
     setStatus(nextStatus);
     setGadgets(nextGadgets);
     setSessions(nextSessions);
-    if (!selectedSession && nextSessions.length > 0) {
-      setSelectedSession(nextSessions[0].id);
-    } else if (selectedSession && !nextSessions.some((session) => session.id === selectedSession)) {
-      setSelectedSession(nextSessions[0]?.id ?? "");
+
+    const nextSelectedSession = preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)
+      ? preferredSessionId
+      : nextSessions[0]?.id ?? "";
+    setSelectedSession(nextSelectedSession);
+
+    if (nextSelectedSession) {
+      setEvents(await loadSessionEvents(nextSelectedSession));
+    } else {
+      setEvents([]);
     }
   }
 
@@ -104,10 +116,10 @@ export function App() {
     setEvents([]);
     if (!selectedSession) return;
     let cancelled = false;
-    invoke<TraceEvent[]>("trace-events", { id: selectedSession })
+    loadSessionEvents(selectedSession)
       .then((next) => {
         if (cancelled) return;
-        setEvents((next ?? []).slice(-1000));
+        setEvents(next);
       })
       .catch(() => undefined);
     return () => {
@@ -146,7 +158,7 @@ export function App() {
       });
       setSelectedSession(session.id);
       setStartDialogOpen(false);
-      await refresh();
+      await refresh(session.id);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -204,10 +216,16 @@ export function App() {
       >
         <section className={`panel sessions ${sessionsOpen ? "" : "collapsed"}`}>
           <div className="sessions-heading">
-            {sessionsOpen && <div className="panel-title">Sessions</div>}
+            {sessionsOpen && (
+              <div className="sessions-title-block">
+                <div className="panel-title">Sessions</div>
+                <span className="sessions-subtitle">{sessions.length} {sessions.length === 1 ? "run" : "runs"}</span>
+              </div>
+            )}
             <Button
               variant="outline"
               size="icon"
+              className="sessions-toggle"
               onClick={() => setSessionsOpen((open) => !open)}
               title={sessionsOpen ? "Collapse sessions" : "Expand sessions"}
             >
@@ -216,37 +234,52 @@ export function App() {
           </div>
           {sessionsOpen && (
             <>
-              {sessions.length === 0 ? <div className="empty">No sessions</div> : sessions.map((session) => {
-                const stoppable = isStoppable(session);
-                const stopping = busy === `stop:${session.id}`;
-                const SessionIcon = sessionIconFor(session, gadgets);
-                return (
-                  <div key={session.id} className={cn("session", session.id === selectedSession && "selected")}>
-                    <button className="session-main" onClick={() => setSelectedSession(session.id)}>
-                      <span className="session-title-row">
-                        <SessionIcon size={14} />
-                        <span className="session-name">{session.gadgetName || session.gadgetId}</span>
-                        <span className={`session-state ${session.state}`}>{session.state}</span>
-                        <span className="session-count">{session.eventCount}</span>
-                      </span>
-                      {stoppable && (
-                        <span className="session-countdown">
-                          <Clock size={13} />
-                          {sessionTimerLabel(session, nowMs)}
+              <div className="session-list">
+                {sessions.length === 0 ? <div className="empty session-empty">No sessions yet</div> : sessions.map((session) => {
+                  const stoppable = isStoppable(session);
+                  const stopping = busy === `stop:${session.id}`;
+                  const selected = session.id === selectedSession;
+                  const SessionIcon = sessionIconFor(session, gadgets);
+                  return (
+                    <div key={session.id} className={cn("session", selected && "selected")}>
+                      <button className="session-main" onClick={() => setSelectedSession(session.id)} type="button">
+                        <span className="session-title-row">
+                          <span className="session-icon"><SessionIcon size={14} /></span>
+                          <span className="session-name-block">
+                            <span className="session-name">{session.gadgetName || session.gadgetId}</span>
+                            <span className="session-target">{targetLabel(session) || session.gadgetId}</span>
+                          </span>
+                          <Badge tone={sessionStateTone(session)} variant="soft" size="xs" className="shrink-0 capitalize">
+                            {session.state}
+                          </Badge>
                         </span>
+                        <span className="session-meta-row">
+                          <span className="session-count">{session.eventCount} events</span>
+                          {stoppable ? (
+                            <span className="session-countdown">
+                              <Clock size={13} />
+                              {sessionTimerLabel(session, nowMs)}
+                            </span>
+                          ) : (
+                            <span className="session-countdown muted">{sessionTimerLabel(session, nowMs)}</span>
+                          )}
+                        </span>
+                      </button>
+                      {stoppable && (
+                        <Button variant="ghost" size="icon" className="session-stop" onClick={() => stopTrace(session.id)} disabled={stopping} title="Stop trace">
+                          {stopping ? <Loader2 className="spin" size={14} /> : <Square size={14} />}
+                        </Button>
                       )}
-                    </button>
-                    {stoppable && (
-                      <Button variant="ghost" size="icon" className="session-stop" onClick={() => stopTrace(session.id)} disabled={stopping} title="Stop trace">
-                        {stopping ? <Loader2 className="spin" size={14} /> : <Square size={14} />}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
               {activeSession && (
                 <div className="session-details">
-                  <div className="panel-title">Run Diagnostics</div>
+                  <div className="session-details-heading">
+                    <div className="panel-title">Run Diagnostics</div>
+                    <Badge tone="neutral" variant="outline" size="xs">{widgetLabel(activeGadgetSpec?.widget || activeSession.gadgetWidget || activeSession.diagnostics?.gadgetWidget || "table")}</Badge>
+                  </div>
                   {activeSession.error && (
                     <div className="failure-reason">
                       <span>Failed reason</span>
@@ -255,7 +288,6 @@ export function App() {
                   )}
                   <KeyValue label="Image" value={activeSession.gadgetImage} mono />
                   <KeyValue label="Tag" value={activeSession.gadgetTag} />
-                  <KeyValue label="Widget" value={widgetLabel(activeGadgetSpec?.widget || activeSession.gadgetWidget || activeSession.diagnostics?.gadgetWidget || "table")} />
                   <KeyValue label="Runtime" value={activeSession.diagnostics?.runtime} />
                   <KeyValue label="Connection" value={activeSession.diagnostics?.connection} />
                   <KeyValue label="Duration" value={`${activeSession.diagnostics?.durationSec || 0}s`} />
@@ -364,6 +396,21 @@ function parseArgumentText(text: string) {
 
 function isStoppable(session: Session) {
   return session.state === "starting" || session.state === "running";
+}
+
+function sessionStateTone(session: Session) {
+  switch (session.state) {
+    case "running":
+      return "success";
+    case "starting":
+      return "warning";
+    case "failed":
+      return "danger";
+    case "completed":
+      return "info";
+    default:
+      return "neutral";
+  }
 }
 
 function sessionTimerLabel(session: Session, nowMs: number) {

@@ -66,9 +66,14 @@ func normalizeKind(kind string) string {
 }
 
 func listRunningPodsForTarget(ctx context.Context, cli kubernetes.Interface, target TargetRef) ([]RunningPod, error) {
+	pods, _, err := listRunningPodsAndSelectorForTarget(ctx, cli, target)
+	return pods, err
+}
+
+func listRunningPodsAndSelectorForTarget(ctx context.Context, cli kubernetes.Interface, target TargetRef) ([]RunningPod, map[string]string, error) {
 	pods, selector, err := podsForTarget(ctx, cli, target)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]RunningPod, 0, len(pods))
 	for i := range pods {
@@ -93,10 +98,15 @@ func listRunningPodsForTarget(ctx context.Context, cli kubernetes.Interface, tar
 		}
 		out = append(out, row)
 	}
-	return out, nil
+	return out, selector, nil
 }
 
 func podsForTarget(ctx context.Context, cli kubernetes.Interface, target TargetRef) ([]corev1.Pod, map[string]string, error) {
+	if len(target.Selector) > 0 && !isPodKind(target.Kind) {
+		pods, err := podsBySelector(ctx, cli, target.Namespace, target.Selector)
+		return pods, target.Selector, err
+	}
+
 	switch normalizeKind(target.Kind) {
 	case "pod", "pods", "po":
 		pod, err := cli.CoreV1().Pods(target.Namespace).Get(ctx, target.Name, metav1.GetOptions{})

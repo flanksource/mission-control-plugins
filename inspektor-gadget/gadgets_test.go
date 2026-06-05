@@ -69,8 +69,11 @@ var _ = ginkgo.Describe("gadget parameters", func() {
 		}, map[string]any{"paths": true})
 
 		Expect(params).To(HaveKeyWithValue("namespace", "default"))
+		Expect(params).To(HaveKeyWithValue("operator.KubeManager.k8s-namespace", "default"))
 		Expect(params).To(HaveKeyWithValue("podname", "api-123"))
+		Expect(params).To(HaveKeyWithValue("operator.KubeManager.k8s-podname", "api-123"))
 		Expect(params).To(HaveKeyWithValue("containername", "api"))
+		Expect(params).To(HaveKeyWithValue("operator.KubeManager.k8s-containername", "api"))
 		Expect(params).To(HaveKeyWithValue("node", "node-a"))
 		Expect(params).To(HaveKeyWithValue("paths", "true"))
 	})
@@ -90,6 +93,20 @@ var _ = ginkgo.Describe("gadget parameters", func() {
 		Expect(options).To(HaveKeyWithValue("custom-flag", true))
 		Expect(options).To(HaveKeyWithValue("operator.Limiter.max-entries", "50"))
 		Expect(options).To(HaveKeyWithValue("sample-rate", "99"))
+	})
+
+	ginkgo.It("builds stable Kubernetes selector filters for workload targets", func() {
+		params := buildGadgetParams(TraceTarget{
+			Namespace: "default",
+			Kind:      "deployment",
+			Name:      "api",
+			Selector:  map[string]string{"tier": "api", "app": "shop"},
+			Node:      "node-a,node-b",
+		}, nil)
+
+		Expect(params).To(HaveKeyWithValue("operator.KubeManager.selector", "app=shop,tier=api"))
+		Expect(params).To(HaveKeyWithValue("operator.KubeManager.k8s-selector", "app=shop,tier=api"))
+		Expect(params).To(HaveKeyWithValue("node", "node-a,node-b"))
 	})
 
 	ginkgo.It("serializes selectors deterministically", func() {
