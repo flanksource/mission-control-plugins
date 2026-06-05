@@ -89,7 +89,7 @@ jobs:
         env:
           MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
         run: >-
-          task plugin:build
+          task build:plugin:ci
           PLUGIN="${{ matrix.plugin }}"
           VERSION="${{ needs.tag.outputs.tag }}"
           TARGET_GOOS="${{ matrix.os }}"
