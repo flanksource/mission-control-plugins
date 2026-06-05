@@ -49,7 +49,12 @@ export function App() {
   const [sessionsWidth, setSessionsWidth] = useState(320);
   const resizeCleanupRef = useRef<(() => void) | null>(null);
 
-  async function refresh() {
+  async function loadSessionEvents(sessionId: string) {
+    const nextEvents = await invoke<TraceEvent[]>("trace-events", { id: sessionId });
+    return (nextEvents ?? []).slice(-1000);
+  }
+
+  async function refresh(preferredSessionId = selectedSession) {
     setError("");
     const [nextStatus, nextGadgets, nextSessions] = await Promise.all([
       invoke<Status>("status"),
@@ -59,10 +64,16 @@ export function App() {
     setStatus(nextStatus);
     setGadgets(nextGadgets);
     setSessions(nextSessions);
-    if (!selectedSession && nextSessions.length > 0) {
-      setSelectedSession(nextSessions[0].id);
-    } else if (selectedSession && !nextSessions.some((session) => session.id === selectedSession)) {
-      setSelectedSession(nextSessions[0]?.id ?? "");
+
+    const nextSelectedSession = preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)
+      ? preferredSessionId
+      : nextSessions[0]?.id ?? "";
+    setSelectedSession(nextSelectedSession);
+
+    if (nextSelectedSession) {
+      setEvents(await loadSessionEvents(nextSelectedSession));
+    } else {
+      setEvents([]);
     }
   }
 
@@ -104,10 +115,10 @@ export function App() {
     setEvents([]);
     if (!selectedSession) return;
     let cancelled = false;
-    invoke<TraceEvent[]>("trace-events", { id: selectedSession })
+    loadSessionEvents(selectedSession)
       .then((next) => {
         if (cancelled) return;
-        setEvents((next ?? []).slice(-1000));
+        setEvents(next);
       })
       .catch(() => undefined);
     return () => {
@@ -146,7 +157,7 @@ export function App() {
       });
       setSelectedSession(session.id);
       setStartDialogOpen(false);
-      await refresh();
+      await refresh(session.id);
     } catch (err) {
       setError(String(err));
     } finally {
