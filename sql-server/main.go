@@ -20,28 +20,34 @@ import (
 // Operation names — exported as constants so the frontend's API client can
 // reference them by symbol when we generate ts bindings.
 const (
-	OpStats           = "stats"
-	OpQuery           = "query"
-	OpExplain         = "explain"
-	OpSchema          = "schema"
-	OpDatabasesList   = "databases-list"
-	OpProcessesList   = "processes-list"
-	OpProcessKill     = "process-kill"
-	OpTraceStart      = "trace-start"
-	OpTraceList       = "trace-list"
-	OpTraceGet        = "trace-get"
-	OpTraceStop       = "trace-stop"
-	OpTraceDelete     = "trace-delete"
-	OpTraceStream     = "trace-stream"
-	OpDefragInstall   = "defrag-install"
-	OpDefragRun       = "defrag-run"
-	OpDefragStatus    = "defrag-status"
-	OpDefragStats     = "defrag-stats"
-	OpDefragHistory   = "defrag-history"
-	OpDefragSessions  = "defrag-sessions"
-	OpDefragTerminate = "defrag-terminate"
-	OpDefragJobs      = "defrag-jobs"
-	OpDefragStop      = "defrag-stop"
+	OpStats             = "stats"
+	OpQuery             = "query"
+	OpExplain           = "explain"
+	OpSchema            = "schema"
+	OpDatabasesList     = "databases-list"
+	OpProcessesList     = "processes-list"
+	OpProcessKill       = "process-kill"
+	OpTraceStart        = "trace-start"
+	OpTraceList         = "trace-list"
+	OpTraceGet          = "trace-get"
+	OpTraceStop         = "trace-stop"
+	OpTraceDelete       = "trace-delete"
+	OpTraceStream       = "trace-stream"
+	OpPermissions       = "permissions"
+	OpDefragHealth      = "defrag-health"
+	OpDefragFix         = "defrag-fix"
+	OpDefragBulkRebuild = "defrag-bulk-rebuild"
+	OpDefragFixJobs     = "defrag-fix-jobs"
+	OpDefragFixStop     = "defrag-fix-stop"
+	OpDefragInstall     = "defrag-install"
+	OpDefragRun         = "defrag-run"
+	OpDefragStatus      = "defrag-status"
+	OpDefragStats       = "defrag-stats"
+	OpDefragHistory     = "defrag-history"
+	OpDefragSessions    = "defrag-sessions"
+	OpDefragTerminate   = "defrag-terminate"
+	OpDefragJobs        = "defrag-jobs"
+	OpDefragStop        = "defrag-stop"
 )
 
 //go:generate go run ./internal/gen-checksum
@@ -73,12 +79,14 @@ type SQLServerPlugin struct {
 	clients    connectionCache
 	traces     *sqltrace.Registry
 	defragJobs *sqldefrag.JobRegistry
+	fixJobs    *sqldefrag.FixJobRegistry
 }
 
 func newPlugin() *SQLServerPlugin {
 	return &SQLServerPlugin{
 		traces:     sqltrace.NewRegistry(),
 		defragJobs: sqldefrag.NewJobRegistry(nil),
+		fixJobs:    sqldefrag.NewFixJobRegistry(),
 	}
 }
 
@@ -102,27 +110,33 @@ func (p *SQLServerPlugin) Configure(_ context.Context, _ map[string]any) error {
 func (p *SQLServerPlugin) Operations() []sdk.Operation {
 	defs := operationDefs()
 	handlers := map[string]func(context.Context, sdk.InvokeCtx) (any, error){
-		OpStats:           p.stats,
-		OpQuery:           p.query,
-		OpExplain:         p.explain,
-		OpSchema:          p.schema,
-		OpDatabasesList:   p.databasesList,
-		OpProcessesList:   p.processesList,
-		OpProcessKill:     p.processKill,
-		OpTraceStart:      p.traceStart,
-		OpTraceList:       p.traceList,
-		OpTraceGet:        p.traceGet,
-		OpTraceStop:       p.traceStop,
-		OpTraceDelete:     p.traceDelete,
-		OpDefragInstall:   p.defragInstall,
-		OpDefragRun:       p.defragRun,
-		OpDefragStatus:    p.defragStatus,
-		OpDefragStats:     p.defragStats,
-		OpDefragHistory:   p.defragHistory,
-		OpDefragSessions:  p.defragSessions,
-		OpDefragTerminate: p.defragTerminate,
-		OpDefragJobs:      p.defragJobsList,
-		OpDefragStop:      p.defragStop,
+		OpStats:             p.stats,
+		OpQuery:             p.query,
+		OpExplain:           p.explain,
+		OpSchema:            p.schema,
+		OpDatabasesList:     p.databasesList,
+		OpProcessesList:     p.processesList,
+		OpProcessKill:       p.processKill,
+		OpTraceStart:        p.traceStart,
+		OpTraceList:         p.traceList,
+		OpTraceGet:          p.traceGet,
+		OpTraceStop:         p.traceStop,
+		OpTraceDelete:       p.traceDelete,
+		OpPermissions:       p.permissions,
+		OpDefragHealth:      p.defragHealth,
+		OpDefragFix:         p.defragFix,
+		OpDefragBulkRebuild: p.defragBulkRebuild,
+		OpDefragFixJobs:     p.defragFixJobsList,
+		OpDefragFixStop:     p.defragFixStop,
+		OpDefragInstall:     p.defragInstall,
+		OpDefragRun:         p.defragRun,
+		OpDefragStatus:      p.defragStatus,
+		OpDefragStats:       p.defragStats,
+		OpDefragHistory:     p.defragHistory,
+		OpDefragSessions:    p.defragSessions,
+		OpDefragTerminate:   p.defragTerminate,
+		OpDefragJobs:        p.defragJobsList,
+		OpDefragStop:        p.defragStop,
 	}
 	httpHandlers := map[string]http.Handler{
 		OpTraceStream: http.HandlerFunc(p.httpTraceStream),
@@ -165,6 +179,12 @@ func operationDefs() []*pluginpb.OperationDef {
 				{Method: http.MethodGet},
 			},
 		},
+		mk(OpPermissions, "Diagnose SQL Server permissions for stats, traces, health scans, fixes, and defrag; returns missing GRANT statements."),
+		mk(OpDefragHealth, "Scan index health: fragmentation, stale stats, duplicate/unused indexes, and table/index sizes; returns recommended fixes."),
+		mk(OpDefragFix, "Apply selected health fixes (rebuild, reorganize, update stats) asynchronously. Returns a job handle."),
+		mk(OpDefragBulkRebuild, "Force whole-table rebuild/update-statistics fixes for selected tables asynchronously. Returns a job handle."),
+		mk(OpDefragFixJobs, "List health-fix jobs the plugin has started."),
+		mk(OpDefragFixStop, "Stop a running health-fix job, or all running health-fix jobs when id is omitted."),
 		mk(OpDefragInstall, "Install Microsoft TigerToolbox AdaptiveIndexDefrag into the maintenance DB."),
 		mk(OpDefragRun, "Run AdaptiveIndexDefrag asynchronously. Returns a job handle."),
 		mk(OpDefragStatus, "Read AdaptiveIndexDefrag installation/configuration status."),
