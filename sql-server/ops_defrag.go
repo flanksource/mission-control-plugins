@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	"github.com/flanksource/mission-control-plugins/sql-server/internal/sqldefrag"
@@ -21,21 +20,6 @@ type DefragFixParams struct {
 
 type DefragFixStopParams struct {
 	ID string `json:"id,omitempty"`
-}
-
-type DefragRollbacksParams struct {
-	Database string `json:"database,omitempty"`
-	Limit    int    `json:"limit,omitempty"`
-}
-
-type DefragRollbacksResponse struct {
-	Database  string                 `json:"database"`
-	Rollbacks []sqldefrag.AuditEntry `json:"rollbacks"`
-}
-
-type DefragRollbackRestoreParams struct {
-	Database string `json:"database,omitempty"`
-	ID       int64  `json:"id"`
 }
 
 func (p *SQLServerPlugin) defragHealth(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -112,53 +96,6 @@ func (p *SQLServerPlugin) defragFixStop(_ context.Context, req sdk.InvokeCtx) (a
 		return job, nil
 	}
 	return p.fixJobs.StopRunning(), nil
-}
-
-func (p *SQLServerPlugin) defragRollbacks(ctx context.Context, req sdk.InvokeCtx) (any, error) {
-	var params DefragRollbacksParams
-	if len(req.ParamsJSON) > 0 {
-		if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
-			return nil, err
-		}
-	}
-	r, err := p.clients.For(ctx, req.Host, req.ConfigItemID)
-	if err != nil {
-		return nil, err
-	}
-	database := params.Database
-	if r.BoundDatabase != "" {
-		database = r.BoundDatabase
-	}
-	resolved, err := sqldefrag.ResolveDatabase(ctx, r.DB, database)
-	if err != nil {
-		return nil, err
-	}
-	if resolved == "" {
-		return nil, fmt.Errorf("rollbacks require a single database; 'all' is not supported")
-	}
-	entries, err := sqldefrag.NewAuditLog(r.DB).List(ctx, resolved, sqldefrag.AuditDropIndex, params.Limit)
-	if err != nil {
-		return nil, err
-	}
-	return DefragRollbacksResponse{Database: resolved, Rollbacks: entries}, nil
-}
-
-func (p *SQLServerPlugin) defragRollbackRestore(ctx context.Context, req sdk.InvokeCtx) (any, error) {
-	var params DefragRollbackRestoreParams
-	if len(req.ParamsJSON) > 0 {
-		if err := json.Unmarshal(req.ParamsJSON, &params); err != nil {
-			return nil, err
-		}
-	}
-	r, err := p.clients.For(ctx, req.Host, req.ConfigItemID)
-	if err != nil {
-		return nil, err
-	}
-	database := params.Database
-	if r.BoundDatabase != "" {
-		database = r.BoundDatabase
-	}
-	return p.fixJobs.StartRollbackRestoreWithDB(r.DB, database, params.ID)
 }
 
 func (p *SQLServerPlugin) defragInstall(ctx context.Context, req sdk.InvokeCtx) (any, error) {
