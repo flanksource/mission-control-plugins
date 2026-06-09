@@ -75,10 +75,6 @@ type Fix struct {
 	Rollback string     `json:"rollback,omitempty"`
 }
 
-func (f Fix) isStatsFix() bool {
-	return f.Kind == FixUpdateStats || f.Kind == FixUpdateAllStats
-}
-
 // FixResult is the outcome of applying a single Fix.
 type FixResult struct {
 	Fix      Fix      `json:"fix"`
@@ -370,20 +366,6 @@ func tableStatsFix(schema, table string, mode SampleMode) Fix {
 		Sample: mode,
 		SQL:    sql,
 	}
-}
-
-func applySampleMode(f Fix, mode SampleMode) Fix {
-	if !f.isStatsFix() {
-		return f
-	}
-	target := ""
-	if f.Kind == FixUpdateStats {
-		target = " (" + bracketName(f.Target) + ")"
-	}
-	f.Sample = mode
-	f.SQL = fmt.Sprintf("UPDATE STATISTICS %s.%s%s%s;",
-		bracketName(f.Schema), bracketName(f.Table), target, fullScanSuffix(mode))
-	return f
 }
 
 func kindRank(k FixKind) int {
