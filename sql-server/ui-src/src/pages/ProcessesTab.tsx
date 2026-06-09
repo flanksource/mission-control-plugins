@@ -9,7 +9,7 @@ import {
 } from "@flanksource/clicky-ui";
 import { callOp, configIDFromURL } from "../lib/api";
 import { ErrorBox } from "./StatsTab";
-import { DatabasePicker } from "./DatabasePicker";
+import { DatabasePicker } from "../components/DatabasePicker";
 
 interface Process {
   sessionId: number;

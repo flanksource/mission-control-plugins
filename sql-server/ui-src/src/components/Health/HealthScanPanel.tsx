@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
 import { Button } from "@flanksource/clicky-ui";
-import { DatabasePicker } from "../../pages/DatabasePicker";
+import { DatabasePicker } from "../DatabasePicker";
 import { Card, ErrorBox } from "../../pages/StatsTab";
 import type { HealthView } from "./types";
 import { inputCls, labelCls } from "./shared";
