@@ -9,6 +9,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/http"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -31,6 +32,7 @@ const (
 	OpTraceGet        = "trace-get"
 	OpTraceStop       = "trace-stop"
 	OpTraceDelete     = "trace-delete"
+	OpTraceStream     = "trace-stream"
 	OpDefragInstall   = "defrag-install"
 	OpDefragRun       = "defrag-run"
 	OpDefragStatus    = "defrag-status"
@@ -122,13 +124,17 @@ func (p *SQLServerPlugin) Operations() []sdk.Operation {
 		OpDefragJobs:      p.defragJobsList,
 		OpDefragStop:      p.defragStop,
 	}
+	httpHandlers := map[string]http.Handler{
+		OpTraceStream: http.HandlerFunc(p.httpTraceStream),
+	}
 	out := make([]sdk.Operation, 0, len(defs))
 	for _, d := range defs {
-		h, ok := handlers[d.Name]
-		if !ok {
+		h := handlers[d.Name]
+		hh := httpHandlers[d.Name]
+		if h == nil && hh == nil {
 			continue
 		}
-		out = append(out, sdk.Operation{Def: d, Handler: h})
+		out = append(out, sdk.Operation{Def: d, Handler: h, HTTPHandler: hh})
 	}
 	return out
 }
@@ -150,6 +156,15 @@ func operationDefs() []*pluginpb.OperationDef {
 		mk(OpTraceGet, "Fetch a trace's buffered events. Pass {since:<lastKey>} to tail incrementally."),
 		mk(OpTraceStop, "Stop a running trace. Returns the final TraceResult."),
 		mk(OpTraceDelete, "Stop and remove a trace from the registry."),
+		{
+			Name:        OpTraceStream,
+			Description: "Stream events from a running Extended Events trace.",
+			Scope:       "config",
+			ResultMime:  "text/event-stream",
+			Http: []*pluginpb.HTTPBinding{
+				{Method: http.MethodGet},
+			},
+		},
 		mk(OpDefragInstall, "Install Microsoft TigerToolbox AdaptiveIndexDefrag into the maintenance DB."),
 		mk(OpDefragRun, "Run AdaptiveIndexDefrag asynchronously. Returns a job handle."),
 		mk(OpDefragStatus, "Read AdaptiveIndexDefrag installation/configuration status."),
