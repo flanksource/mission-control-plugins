@@ -90,6 +90,25 @@ export interface Fix {
   rollback?: string;
 }
 
+export interface RollbackEntry {
+  id: number;
+  createdAt: string;
+  database: string;
+  schema: string;
+  table: string;
+  objectName: string;
+  action: string;
+  reason: string;
+  appliedSql: string;
+  rollbackSql: string;
+  restoredAt?: string;
+}
+
+export interface RollbacksResponse {
+  database: string;
+  rollbacks?: RollbackEntry[];
+}
+
 export interface FixJob {
   id: string;
   status: "running" | "done" | "failed" | "stopped";

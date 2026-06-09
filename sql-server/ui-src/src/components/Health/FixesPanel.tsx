@@ -53,9 +53,8 @@ export function FixesPanel({
               select rebuild/reorg/stats
             </label>
             {fixes.some((f) => f.kind.includes("DROP")) && (
-              <span className="text-muted-foreground">
-                DROP INDEX recommendations are diagnostic-only until rollback
-                restore is migrated.
+              <span className="text-red-600">
+                DROP INDEX is destructive, never preselected, and requires manual verification. Rollback SQL is saved before restore.
               </span>
             )}
             <Button
@@ -94,12 +93,14 @@ export function FixesPanel({
                       <td className={tdCls}>
                         <input
                           type="checkbox"
-                          disabled={isDrop}
                           checked={selected.has(i)}
                           onChange={() => onToggle(i)}
                         />
                       </td>
-                      <td className={tdCls + fixTone(f.kind)}>{f.kind}</td>
+                      <td className={tdCls + fixTone(f.kind)}>
+                        {f.kind}
+                        {isDrop && <div className="text-[10px] font-semibold uppercase text-red-600">destructive</div>}
+                      </td>
                       <td className={monoTd}>
                         {f.schema}.{f.table}
                       </td>

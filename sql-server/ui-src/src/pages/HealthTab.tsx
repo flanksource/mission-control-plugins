@@ -79,8 +79,8 @@ export function HealthTab() {
   const tables = view?.health.tables ?? []
 
   useEffect(() => {
-    // Do not pre-select DROP INDEX recommendations; they are useful diagnostics
-    // but should be an explicit operator choice until rollback restore is moved.
+    // Do not pre-select DROP INDEX recommendations; they are destructive and
+    // must be an explicit operator choice even though rollback SQL is persisted.
     setSelectedFixes(new Set(defaultSelectedFixIndexes(fixes)))
     setSelectedTables(new Set<string>())
   }, [view])

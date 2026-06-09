@@ -773,6 +773,10 @@ func normalizeRunOptions(ctx context.Context, db *gorm.DB, opts RunOptions) (Run
 	return opts, nil
 }
 
+func ResolveDatabase(ctx context.Context, db *gorm.DB, requested string) (string, error) {
+	return resolveDatabase(ctx, db, requested)
+}
+
 func resolveDatabase(ctx context.Context, db *gorm.DB, requested string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(requested)) {
 	case "all", "*":
