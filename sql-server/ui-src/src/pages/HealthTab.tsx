@@ -4,6 +4,8 @@ import { Hammer, Loader2, RefreshCw, Search, ShieldAlert, Square, Wrench } from 
 import { Button } from "@flanksource/clicky-ui";
 import { callOp, configIDFromURL } from "../lib/api";
 import { formatBytes, formatNumber, formatPercent } from "../lib/format";
+import { DatabasePicker } from "./DatabasePicker";
+import { HealthSummary } from "./HealthSummary";
 import { Card, ErrorBox } from "./StatsTab";
 
 interface PermissionReport {
@@ -228,11 +230,11 @@ export function HealthTab() {
         <div className="flex flex-wrap items-end gap-density-2">
           <label className={labelCls}>
             database
-            <input
+            <DatabasePicker
+              configID={configID}
               value={database}
-              onChange={(e) => setDatabase(e.currentTarget.value)}
-              placeholder="current / bound"
-              className={inputCls + " w-[180px]"}
+              onChange={setDatabase}
+              emptyLabel="Current / bound database"
             />
           </label>
           <label className={labelCls}>
@@ -386,45 +388,6 @@ function PermissionsPanel({ query }: { query: UseQueryResult<PermissionReport, E
       {report.warnings?.length ? (
         <ul className="mt-density-2 m-0 pl-4 text-xs text-amber-700 dark:text-amber-300">
           {report.warnings.map((w, i) => <li key={i}>{w}</li>)}
-        </ul>
-      ) : null}
-    </Card>
-  );
-}
-
-function HealthSummary({ view }: { view: HealthView }) {
-  const tables = view.health.tables ?? [];
-  const totals = tables.reduce(
-    (acc, t) => {
-      acc.totalBytes += t.totalBytes;
-      acc.indexBytes += t.indexBytes;
-      acc.unusedBytes += t.unusedBytes;
-      if (!t.fragHealthy) acc.fragmented++;
-      if (!t.statsHealthy) acc.staleStats++;
-      if (t.maxFragmentation > acc.worstFrag) acc.worstFrag = t.maxFragmentation;
-      return acc;
-    },
-    { totalBytes: 0, indexBytes: 0, unusedBytes: 0, fragmented: 0, staleStats: 0, worstFrag: 0 },
-  );
-  return (
-    <Card title="Health summary">
-      <div className="grid gap-density-2 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Database" value={view.health.database} />
-        <Metric label="Tables" value={formatNumber(tables.length)} />
-        <Metric label="Total size" value={formatBytes(totals.totalBytes)} />
-        <Metric label="Index size" value={formatBytes(totals.indexBytes)} />
-        <Metric label="Unused" value={formatBytes(totals.unusedBytes)} />
-        <Metric label="Fragmented tables" value={formatNumber(totals.fragmented)} bad={totals.fragmented > 0} />
-        <Metric label="Stale-stat tables" value={formatNumber(totals.staleStats)} bad={totals.staleStats > 0} />
-        <Metric label="Worst frag" value={formatPercent(totals.worstFrag)} />
-      </div>
-      <p className="m-0 mt-density-2 text-xs text-muted-foreground">
-        scan={view.health.scanMode} · engine edition={view.engineEdition} · {view.onlineRebuild ? "online" : "offline"} rebuilds · SQL {view.productMajorVersion || "?"} · uptime {view.uptimeDays || "?"}d
-        {!view.usageReliable && " · usage counts may be reset/noisy"}
-      </p>
-      {view.warnings?.length ? (
-        <ul className="mt-density-1 m-0 pl-4 text-xs text-amber-600">
-          {view.warnings.map((w, i) => <li key={i}>{w}</li>)}
         </ul>
       ) : null}
     </Card>
@@ -631,15 +594,6 @@ function JobsTable({ jobs, onStop }: { jobs: FixJob[]; onStop: (id: string) => v
         ))}
       </tbody>
     </table>
-  );
-}
-
-function Metric({ label, value, bad }: { label: string; value: string; bad?: boolean }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={(bad ? "text-red-600 " : "") + "mt-1 font-mono text-sm"}>{value}</div>
-    </div>
   );
 }
 
