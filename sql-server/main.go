@@ -34,6 +34,8 @@ const (
 	OpTraceDelete           = "trace-delete"
 	OpTraceStream           = "trace-stream"
 	OpPermissions           = "permissions"
+	OpRollbackList          = "rollback-list"
+	OpRollbackRestore       = "rollback-restore"
 	OpDefragHealth          = "defrag-health"
 	OpDefragFix             = "defrag-fix"
 	OpDefragBulkRebuild     = "defrag-bulk-rebuild"
@@ -125,6 +127,8 @@ func (p *SQLServerPlugin) Operations() []sdk.Operation {
 		OpTraceStop:             p.traceStop,
 		OpTraceDelete:           p.traceDelete,
 		OpPermissions:           p.permissions,
+		OpRollbackList:          p.rollbackList,
+		OpRollbackRestore:       p.rollbackRestore,
 		OpDefragHealth:          p.defragHealth,
 		OpDefragFix:             p.defragFix,
 		OpDefragBulkRebuild:     p.defragBulkRebuild,
@@ -184,6 +188,8 @@ func operationDefs() []*pluginpb.OperationDef {
 			},
 		},
 		mk(OpPermissions, "Diagnose SQL Server permissions for stats, traces, health scans, fixes, and defrag; returns missing GRANT statements."),
+		mk(OpRollbackList, "List recorded DROP INDEX rollback entries from dbo.MCAuditLog for a single database."),
+		mk(OpRollbackRestore, "Restore a dropped index by running rollback SQL from dbo.MCAuditLog asynchronously. Returns a job handle."),
 		mk(OpDefragHealth, "Scan index health: fragmentation, stale stats, duplicate/unused indexes, and table/index sizes; returns recommended fixes."),
 		mk(OpDefragFix, "Apply selected health fixes (rebuild, reorganize, update stats, audited DROP INDEX) asynchronously. Returns a job handle."),
 		mk(OpDefragBulkRebuild, "Force whole-table rebuild/update-statistics fixes for selected tables asynchronously. Returns a job handle."),
