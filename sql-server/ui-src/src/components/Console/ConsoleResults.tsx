@@ -17,8 +17,8 @@ import {
   toCsv,
   toJson,
   type ExportColumn,
-} from "../lib/exporters";
-import { Card } from "./StatsTab";
+} from "../../lib/exporters";
+import { Card } from "../../pages/StatsTab";
 
 export interface ColumnType {
   name: string;

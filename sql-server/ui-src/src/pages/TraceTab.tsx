@@ -12,7 +12,7 @@ import {
 import { callOp, configIDFromURL, openTraceStream } from "../lib/api";
 import { readPref, writePref } from "../lib/prefs";
 import { ErrorBox, Card } from "./StatsTab";
-import { DatabasePicker } from "./DatabasePicker";
+import { DatabasePicker } from "../components/DatabasePicker";
 
 type EventOrder = "newest" | "oldest";
 const EVENT_ORDER_KEY = "sql-server-trace-order";

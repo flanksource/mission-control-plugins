@@ -4,7 +4,7 @@ import { Loader2, RefreshCw, RotateCcw, Undo2 } from "lucide-react";
 import { Button } from "@flanksource/clicky-ui";
 import { callOp, configIDFromURL } from "../lib/api";
 import { Card, ErrorBox } from "./StatsTab";
-import { DatabasePicker } from "./DatabasePicker";
+import { DatabasePicker } from "../components/DatabasePicker";
 import type { FixJob, RollbackEntry, RollbacksResponse } from "../components/Health/types";
 import { EmptyState, monoTd, tdCls, thCls } from "../components/Health/shared";
 
