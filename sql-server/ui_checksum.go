@@ -5,4 +5,4 @@ package main
 // uiChecksum is the sha256 of every file embedded under ui/.
 // Regenerated on every `task build:plugin:sql-server` or
 // `go generate ./plugins/sql-server/...`.
-const uiChecksum = "098c7f23804fd936170cd05748d59c1e7620ec09999afd9be1e0ab6c14f8e286"
+const uiChecksum = "fc36eb63f687116bf345926fcadd4d558940e1df42ed16ebb1952f939632eef0"

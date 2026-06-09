@@ -1,3 +1,5 @@
+import { stream } from "@flanksource/plugin-ui-sdk";
+
 // API client for the sql-server plugin's iframe.
 //
 // The iframe is served from `/api/plugins/sql-server/ui/` (the host's
@@ -22,13 +24,6 @@ function operationURL(op: string, configID: string): string {
     window.location.origin,
   );
   if (configID) url.searchParams.set("config_id", configID);
-  return url.toString();
-}
-
-function traceStreamURL(traceID: string, since?: string): string {
-  // SSE endpoint lives inside the plugin's HTTP server, mounted at /ui/.
-  const url = new URL("trace-stream/" + traceID, window.location.href);
-  if (since) url.searchParams.set("since", since);
   return url.toString();
 }
 
@@ -90,9 +85,11 @@ export function openTraceStream(
   onDone?: () => void,
   since?: string,
 ): EventSource {
-  const es = new EventSource(traceStreamURL(traceID, since), {
-    withCredentials: true,
-  });
+  const es = stream(
+    "trace-stream",
+    { id: traceID, since },
+    { withCredentials: true },
+  );
   es.onmessage = (ev) => {
     try {
       onEvent(JSON.parse(ev.data));

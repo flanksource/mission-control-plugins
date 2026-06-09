@@ -30,13 +30,20 @@ func (p *SQLServerPlugin) HTTPHandler() http.Handler {
 }
 
 func (p *SQLServerPlugin) httpTraceStream(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/trace-stream/")
+	id := r.URL.Query().Get("id")
 	if id == "" {
+		id = strings.TrimPrefix(r.URL.Path, "/trace-stream/")
+	}
+	if id == "" || id == r.URL.Path {
 		http.Error(w, "trace id required", http.StatusBadRequest)
 		return
 	}
-	trace, ok := p.traces.Get(id)
-	if !ok {
+	configID := r.URL.Query().Get("config_id")
+	if configID == "" {
+		configID = sdk.ConfigItemIDFromContext(r.Context())
+	}
+	trace, err := p.traces.GetForConfig(id, configID)
+	if err != nil {
 		http.Error(w, fmt.Sprintf("trace %q not found", id), http.StatusNotFound)
 		return
 	}
@@ -46,20 +53,31 @@ func (p *SQLServerPlugin) httpTraceStream(w http.ResponseWriter, r *http.Request
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Content-Encoding", "identity")
+	w.Header().Set("X-Accel-Buffering", "no")
 
-	// Tail loop: ship every new event as one SSE frame, terminate when the
-	// trace stops, the client disconnects, or the server is shutting down.
-	since := r.URL.Query().Get("since")
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-tick.C:
+	writeComment := func(comment string) bool {
+		if _, err := fmt.Fprintf(w, ": %s\n\n", comment); err != nil {
+			return false
 		}
+		flusher.Flush()
+		return true
+	}
+	writeDone := func() bool {
+		if _, err := fmt.Fprintf(w, "event: done\ndata: {}\n\n"); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+
+	// Tail loop: drain once immediately, then ship new events as SSE frames on
+	// each tick. Heartbeats keep the EventSource/proxy connection established
+	// even when SQL Server has no matching events.
+	since := r.URL.Query().Get("since")
+	drain := func() bool {
 		events := trace.EventsSince(since)
 		for _, e := range events {
 			b, err := json.Marshal(e)
@@ -67,17 +85,38 @@ func (p *SQLServerPlugin) httpTraceStream(w http.ResponseWriter, r *http.Request
 				continue
 			}
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
-				return
+				return false
 			}
 			flusher.Flush()
 			since = e.Key()
 		}
 		if !trace.Running() {
-			if _, err := fmt.Fprintf(w, "event: done\ndata: {}\n\n"); err != nil {
+			_ = writeDone()
+			return false
+		}
+		return true
+	}
+
+	if !writeComment("connected") || !drain() {
+		return
+	}
+
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-heartbeat.C:
+			if !writeComment("heartbeat") {
 				return
 			}
-			flusher.Flush()
-			return
+		case <-tick.C:
+			if !drain() {
+				return
+			}
 		}
 	}
 }

@@ -23,7 +23,27 @@ export function stream(operation, query, options) {
     return new EventSource(operationURL(operation, query), options);
 }
 export function ready() {
-    currentWindow().parent.postMessage(readyMessage, "*");
+    const win = currentWindow();
+    const targetOrigin = parentOrigin(win);
+    if (!targetOrigin) {
+        return;
+    }
+    win.parent.postMessage(readyMessage, targetOrigin);
+}
+function parentOrigin(win) {
+    const origin = win.location.origin;
+    if (!origin || origin === "null") {
+        console.warn("plugin-ui-sdk: unable to determine parent origin; ready signal skipped");
+        return "";
+    }
+    try {
+        new URL(origin);
+    }
+    catch {
+        console.warn(`plugin-ui-sdk: invalid parent origin ${origin}; ready signal skipped`);
+        return "";
+    }
+    return origin;
 }
 function operationURL(operation, query) {
     validateOperation(operation);
