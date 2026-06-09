@@ -1,25 +1,28 @@
+---
 apiVersion: mission-control.flanksource.com/v1
 kind: Plugin
 metadata:
   name: sql-server
+  namespace: defatul
 spec:
-  source: sql-server
-  version: "0.1.0"
+  source: sql-server-mc-plugin
   selector:
     types:
       - MissionControl::Connection
-  sqlConnection:
-    connection: connection://mission-control/mssql-non-prod
-
-  # SQL connection resolution:
-  #   - If `sqlConnection` is set below, every plugin operation talks to that
-  #     database, regardless of which catalog item the iframe is on. Pin a
-  #     production deployment by setting:
-  #
-  #       sqlConnection:
-  #         connection: connection://default/my-sqlserver
-  #
-  #   - If `sqlConnection` is unset (the default), the host walks from the
-  #     current config item to its owning ScrapeConfig and uses the first
-  #     `spec.sql[].connection` declared there. This lets the same plugin
-  #     serve any database that mission-control already scrapes.
+    labelSelector: mission-control/connection-type=mssql
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-sql-server-plugin-connection-read
+  namespace: defatul
+spec:
+  description: allow sql-server plugin to read mission-control database connection.
+  subject:
+    plugin: defatul/sql-server
+  actions:
+    - read
+  object:
+    connections:
+      - types:
+          - 'sql_server'
