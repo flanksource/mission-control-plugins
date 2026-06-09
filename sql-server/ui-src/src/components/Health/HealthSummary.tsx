@@ -1,5 +1,14 @@
-import { Database, Gauge, HardDrive, ListChecks, RefreshCw, Server, Table2, TrendingUp } from "lucide-react";
-import { formatBytes, formatNumber, formatPercent } from "../lib/format";
+import {
+  Database,
+  Gauge,
+  HardDrive,
+  ListChecks,
+  RefreshCw,
+  Server,
+  Table2,
+  TrendingUp,
+} from "lucide-react";
+import { formatBytes, formatNumber, formatPercent } from "../../lib/format";
 
 export interface HealthSummaryView {
   health: {
@@ -45,7 +54,8 @@ export function HealthSummary({ view }: { view: HealthSummaryView }) {
       acc.unusedBytes += t.unusedBytes;
       if (!t.fragHealthy) acc.fragmented++;
       if (!t.statsHealthy) acc.staleStats++;
-      if (t.maxFragmentation > acc.worstFrag) acc.worstFrag = t.maxFragmentation;
+      if (t.maxFragmentation > acc.worstFrag)
+        acc.worstFrag = t.maxFragmentation;
       return acc;
     },
     {
@@ -67,11 +77,36 @@ export function HealthSummary({ view }: { view: HealthSummaryView }) {
       hint: `scan ${view.health.scanMode}`,
       icon: Database,
     },
-    { label: "Tables", value: formatNumber(tables.length), hint: `${formatNumber(totals.rows)} rows`, icon: Table2 },
-    { label: "Total size", value: formatBytes(totals.totalBytes), hint: "reserved", icon: HardDrive },
-    { label: "Data size", value: formatBytes(totals.dataBytes), hint: "table data", icon: HardDrive },
-    { label: "Index size", value: formatBytes(totals.indexBytes), hint: "all indexes", icon: ListChecks },
-    { label: "Unused", value: formatBytes(totals.unusedBytes), hint: "allocated free", icon: HardDrive },
+    {
+      label: "Tables",
+      value: formatNumber(tables.length),
+      hint: `${formatNumber(totals.rows)} rows`,
+      icon: Table2,
+    },
+    {
+      label: "Total size",
+      value: formatBytes(totals.totalBytes),
+      hint: "reserved",
+      icon: HardDrive,
+    },
+    {
+      label: "Data size",
+      value: formatBytes(totals.dataBytes),
+      hint: "table data",
+      icon: HardDrive,
+    },
+    {
+      label: "Index size",
+      value: formatBytes(totals.indexBytes),
+      hint: "all indexes",
+      icon: ListChecks,
+    },
+    {
+      label: "Unused",
+      value: formatBytes(totals.unusedBytes),
+      hint: "allocated free",
+      icon: HardDrive,
+    },
     {
       label: "Fragmented",
       value: formatNumber(totals.fragmented),
@@ -86,7 +121,12 @@ export function HealthSummary({ view }: { view: HealthSummaryView }) {
       icon: RefreshCw,
       tone: totals.staleStats > 0 ? "warn" : "good",
     },
-    { label: "Worst frag", value: formatPercent(totals.worstFrag), hint: "max index", icon: Gauge },
+    {
+      label: "Worst frag",
+      value: formatPercent(totals.worstFrag),
+      hint: "max index",
+      icon: Gauge,
+    },
     {
       label: "Rebuild mode",
       value: view.onlineRebuild ? "Online" : "Offline",
@@ -99,14 +139,20 @@ export function HealthSummary({ view }: { view: HealthSummaryView }) {
   return (
     <section className="rounded-lg border border-border bg-card p-density-2">
       <div className="mb-density-2 flex flex-wrap items-center justify-between gap-density-2">
-        <h4 className="m-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Health summary</h4>
+        <h4 className="m-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Health summary
+        </h4>
         <div className="text-xs text-muted-foreground">
-          SQL {view.productMajorVersion || "?"} · uptime {view.uptimeDays || "?"}d
+          SQL {view.productMajorVersion || "?"} · uptime{" "}
+          {view.uptimeDays || "?"}d
           {!view.usageReliable && " · usage counters may be reset/noisy"}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-density-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div
+        className="grid gap-density-2"
+        style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}
+      >
         {metrics.map((metric) => (
           <SummaryTile key={metric.label} metric={metric} />
         ))}
@@ -114,7 +160,9 @@ export function HealthSummary({ view }: { view: HealthSummaryView }) {
 
       {view.warnings?.length ? (
         <ul className="mt-density-2 m-0 pl-4 text-xs text-amber-600">
-          {view.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          {view.warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
         </ul>
       ) : null}
     </section>
@@ -133,13 +181,21 @@ function SummaryTile({ metric }: { metric: SummaryMetric }) {
           : "text-foreground";
 
   return (
-    <div className="rounded-md border border-border/70 bg-background/60 p-density-2 shadow-sm">
+    <div className="rounded-md bg-background/60 p-density-2">
       <div className="mb-density-1 flex items-center gap-density-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <Icon size={13} />
         {metric.label}
       </div>
-      <div className={`truncate font-mono text-lg font-semibold leading-tight ${toneClass}`}>{metric.value}</div>
-      {metric.hint && <div className="mt-1 truncate text-[11px] text-muted-foreground">{metric.hint}</div>}
+      <div
+        className={`truncate font-mono text-lg font-semibold leading-tight ${toneClass}`}
+      >
+        {metric.value}
+      </div>
+      {metric.hint && (
+        <div className="mt-1 truncate text-[11px] text-muted-foreground">
+          {metric.hint}
+        </div>
+      )}
     </div>
   );
 }
