@@ -72,11 +72,8 @@ func (r *FixJobRegistry) StartWithDB(db *gorm.DB, database string, fixes []Fix) 
 	}
 	ordered := orderFixes(fixes)
 	for i, f := range ordered {
-		if f.Kind == FixDropIndex {
-			return nil, fmt.Errorf("DROP INDEX fixes require rollback-restore support and are not applied by this operation yet")
-		}
-		if f.SQL == "" {
-			return nil, fmt.Errorf("fix %d (%s %s.%s %s) has empty sql", i+1, f.Kind, f.Schema, f.Table, f.Target)
+		if err := validateFixForApply(f); err != nil {
+			return nil, fmt.Errorf("fix %d: %w", i+1, err)
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -126,6 +123,60 @@ func (r *FixJobRegistry) StartBulkWithDB(db *gorm.DB, opts BulkRebuildOptions) (
 	return r.StartWithDB(db, opts.Database, fixes)
 }
 
+func (r *FixJobRegistry) StartRollbackRestoreWithDB(db *gorm.DB, database string, id int64) (*FixJob, error) {
+	if r == nil {
+		return nil, fmt.Errorf("fix job registry is not configured")
+	}
+	if db == nil {
+		return nil, fmt.Errorf("db is required")
+	}
+	if id <= 0 {
+		return nil, fmt.Errorf("id must be a positive audit entry id")
+	}
+	resolved, err := resolveDatabase(context.Background(), db, database)
+	if err != nil {
+		return nil, err
+	}
+	if resolved == "" {
+		return nil, fmt.Errorf("restore requires a single database; 'all' is not supported")
+	}
+	entry, err := NewAuditLog(db).Get(context.Background(), resolved, id)
+	if err != nil {
+		return nil, err
+	}
+	if entry.Action != AuditDropIndex {
+		return nil, fmt.Errorf("audit entry %d is %q, not %q", id, entry.Action, AuditDropIndex)
+	}
+	if entry.RollbackSQL == "" {
+		return nil, fmt.Errorf("audit entry %d has no rollback SQL", id)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	fix := Fix{
+		Kind:   FixRestoreIndex,
+		Schema: entry.SchemaName,
+		Table:  entry.Table,
+		Target: entry.ObjectName,
+		Detail: fmt.Sprintf("restore dropped index from audit #%d", entry.ID),
+		SQL:    entry.RollbackSQL,
+	}
+	job := &FixJob{
+		ID:        fmt.Sprintf("defrag-rollback-restore-%d", time.Now().UnixNano()),
+		Status:    JobRunning,
+		Database:  resolved,
+		StartedAt: time.Now(),
+		Fixes:     []Fix{fix},
+		Summary:   FixJobSummary{Total: 1},
+		Cancel:    cancel,
+	}
+	r.mu.Lock()
+	r.jobs[job.ID] = job
+	r.pruneLocked(25)
+	r.mu.Unlock()
+
+	go r.runRestoreDetached(ctx, db, job.ID, resolved, entry, fix)
+	return job.Clone(), nil
+}
+
 func (r *FixJobRegistry) runDetached(ctx context.Context, db *gorm.DB, id, database string, fixes []Fix) {
 	for _, f := range fixes {
 		if err := ctx.Err(); err != nil {
@@ -157,6 +208,46 @@ func (r *FixJobRegistry) runDetached(ctx context.Context, db *gorm.DB, id, datab
 	r.finish(id, status, errMsg)
 }
 
+func (r *FixJobRegistry) runRestoreDetached(ctx context.Context, db *gorm.DB, id, database string, entry AuditEntry, fix Fix) {
+	res := FixResult{Fix: fix, Messages: []string{entry.RollbackSQL}}
+	if err := ctx.Err(); err != nil {
+		res.Error = err.Error()
+		r.appendResult(id, res)
+		r.finish(id, JobStopped, err.Error())
+		return
+	}
+	runErr := db.WithContext(ctx).Connection(func(tx *gorm.DB) error {
+		if err := tx.Exec("USE " + bracketName(database)).Error; err != nil {
+			return fmt.Errorf("use %s: %w", database, err)
+		}
+		return tx.Exec(entry.RollbackSQL).Error
+	})
+	if runErr != nil {
+		res.Error = runErr.Error()
+		r.appendResult(id, res)
+		r.finish(id, JobFailed, runErr.Error())
+		return
+	}
+	res.Applied = true
+	audit := NewAuditLog(db)
+	if err := audit.RecordRestore(ctx, database, entry); err != nil {
+		msg := fmt.Sprintf("restored index but failed to record RESTORE audit entry: %v", err)
+		res.Error = msg
+		res.Messages = append(res.Messages, msg)
+	}
+	if err := audit.MarkRestored(ctx, database, entry.ID); err != nil {
+		msg := fmt.Sprintf("restored index but failed to stamp audit #%d as restored: %v", entry.ID, err)
+		res.Error = msg
+		res.Messages = append(res.Messages, msg)
+	}
+	r.appendResult(id, res)
+	if res.Error != "" {
+		r.finish(id, JobFailed, res.Error)
+		return
+	}
+	r.finish(id, JobDone, "")
+}
+
 func (r *FixJobRegistry) appendResult(id string, res FixResult) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -167,7 +258,8 @@ func (r *FixJobRegistry) appendResult(id string, res FixResult) {
 	job.Results = append(job.Results, res)
 	if res.Applied {
 		job.Summary.Applied++
-	} else {
+	}
+	if !res.Applied || res.Error != "" {
 		job.Summary.Failed++
 	}
 	switch res.Fix.Kind {

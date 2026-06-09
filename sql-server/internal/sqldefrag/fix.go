@@ -37,6 +37,7 @@ const (
 	FixUpdateStats    FixKind = "UPDATE STATISTICS"
 	FixUpdateAllStats FixKind = "UPDATE ALL STATS"
 	FixDropIndex      FixKind = "DROP INDEX"
+	FixRestoreIndex   FixKind = "RESTORE INDEX"
 )
 
 // SampleMode chooses how statistics are re-read on an UPDATE STATISTICS.
@@ -419,6 +420,17 @@ func ApplyFixes(ctx context.Context, db *gorm.DB, database string, fixes []Fix) 
 
 func applyOneFix(ctx context.Context, db *gorm.DB, database string, f Fix) FixResult {
 	res := FixResult{Fix: f, Messages: []string{f.SQL}}
+	if err := validateFixForApply(f); err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	audit := NewAuditLog(db)
+	if f.Kind == FixDropIndex {
+		if err := audit.EnsureDatabase(ctx, database); err != nil {
+			res.Error = fmt.Sprintf("DROP INDEX not applied because rollback audit table is unavailable: %v", err)
+			return res
+		}
+	}
 	err := db.WithContext(ctx).Connection(func(tx *gorm.DB) error {
 		if err := tx.Exec("USE " + bracketName(database)).Error; err != nil {
 			return fmt.Errorf("use %s: %w", database, err)
@@ -430,5 +442,22 @@ func applyOneFix(ctx context.Context, db *gorm.DB, database string, f Fix) FixRe
 		return res
 	}
 	res.Applied = true
+	if f.Kind == FixDropIndex {
+		if err := audit.RecordDrop(ctx, database, f); err != nil {
+			msg := fmt.Sprintf("DROP INDEX succeeded, but failed to persist rollback SQL in dbo.%s: %v", auditLogTable, err)
+			res.Error = msg
+			res.Messages = append(res.Messages, msg)
+		}
+	}
 	return res
+}
+
+func validateFixForApply(f Fix) error {
+	if strings.TrimSpace(f.SQL) == "" {
+		return fmt.Errorf("fix %s %s.%s %s has empty sql", f.Kind, f.Schema, f.Table, f.Target)
+	}
+	if f.Kind == FixDropIndex && strings.TrimSpace(f.Rollback) == "" {
+		return fmt.Errorf("DROP INDEX fix %s.%s %s has no rollback SQL; refusing to apply", f.Schema, f.Table, f.Target)
+	}
+	return nil
 }

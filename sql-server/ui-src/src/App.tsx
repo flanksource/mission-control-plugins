@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { Activity, Database, HeartPulse, ListTree, ScrollText, Wrench } from "lucide-react";
+import { Activity, Database, HeartPulse, ListTree, ScrollText, Undo2, Wrench } from "lucide-react";
 import { configIDFromURL } from "./lib/api";
 import { StatsTab } from "./pages/StatsTab";
 import { ConsoleTab } from "./pages/ConsoleTab";
@@ -7,6 +7,7 @@ import { TraceTab } from "./pages/TraceTab";
 import { ProcessesTab } from "./pages/ProcessesTab";
 import { HealthTab } from "./pages/HealthTab";
 import { DefragTab } from "./pages/DefragTab";
+import { RollbacksTab } from "./pages/RollbacksTab";
 
 const tabs = [
   { key: "stats", label: "Stats", icon: Activity, render: () => <StatsTab /> },
@@ -14,6 +15,7 @@ const tabs = [
   { key: "trace", label: "Trace", icon: ScrollText, render: () => <TraceTab /> },
   { key: "processes", label: "Processes", icon: ListTree, render: () => <ProcessesTab /> },
   { key: "health", label: "Health", icon: HeartPulse, render: () => <HealthTab /> },
+  { key: "rollbacks", label: "Rollbacks", icon: Undo2, render: () => <RollbacksTab /> },
   { key: "defrag", label: "Defrag", icon: Wrench, render: () => <DefragTab /> },
 ] as const;
 
