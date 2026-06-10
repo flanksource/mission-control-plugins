@@ -24,6 +24,7 @@ const (
 	OpQuery                 = "query"
 	OpExplain               = "explain"
 	OpSchema                = "schema"
+	OpInspect               = "inspect"
 	OpDatabasesList         = "databases-list"
 	OpProcessesList         = "processes-list"
 	OpProcessKill           = "process-kill"
@@ -118,6 +119,7 @@ func (p *SQLServerPlugin) Operations() []sdk.Operation {
 		OpQuery:                 p.query,
 		OpExplain:               p.explain,
 		OpSchema:                p.schema,
+		OpInspect:               p.inspect,
 		OpDatabasesList:         p.databasesList,
 		OpProcessesList:         p.processesList,
 		OpProcessKill:           p.processKill,
@@ -170,6 +172,7 @@ func operationDefs() []*pluginpb.OperationDef {
 		mk(OpQuery, "Execute an ad-hoc SQL statement and return rows + columns."),
 		mk(OpExplain, "Return SHOWPLAN (XML or text) for the given statement."),
 		mk(OpSchema, "List tables and columns in the database (powers Console autocomplete)."),
+		mk(OpInspect, "Inspect SQL Server schema and return UIR metadata for Database tab."),
 		mk(OpDatabasesList, "List ONLINE databases on the instance."),
 		mk(OpProcessesList, "List active user sessions on the instance (sp_who2 style)."),
 		mk(OpProcessKill, "KILL the given SPID. Not recoverable."),
