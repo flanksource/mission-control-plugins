@@ -28,6 +28,8 @@ const MSSQLDatabaseType = "MSSQL::Database"
 type resolved struct {
 	DB            *gorm.DB
 	BoundDatabase string
+	ConnType      string
+	ConnURL       string
 }
 
 // connectionCache memoises one resolved entry per configItemID so repeated
@@ -84,7 +86,7 @@ func (c *connectionCache) For(ctx context.Context, host sdk.HostClient, configIt
 	if err != nil {
 		return nil, err
 	}
-	r := &resolved{DB: db, BoundDatabase: bound}
+	r := &resolved{DB: db, BoundDatabase: bound, ConnType: connType, ConnURL: connURL}
 	c.store(configItemID, r)
 	return r, nil
 }
