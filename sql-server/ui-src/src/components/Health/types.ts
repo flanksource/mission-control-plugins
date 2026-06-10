@@ -7,8 +7,15 @@ export interface PermissionReport {
   warnings?: string[];
 }
 
+export type PermissionCategoryName =
+  | "metrics"
+  | "inspection"
+  | "healthView"
+  | "healthFix"
+  | "defrag";
+
 export interface PermissionCategory {
-  category: string;
+  category: PermissionCategoryName;
   label: string;
   granted: boolean;
   missingPermissions?: string[];

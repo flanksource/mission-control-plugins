@@ -18,7 +18,6 @@ type Category string
 const (
 	CategoryMetrics    Category = "metrics"
 	CategoryInspection Category = "inspection"
-	CategoryTrace      Category = "trace"
 	CategoryHealthView Category = "healthView"
 	CategoryHealthFix  Category = "healthFix"
 	CategoryDefrag     Category = "defrag"
@@ -55,37 +54,37 @@ func (r Report) AllGranted() bool {
 }
 
 type probe struct {
-	login                string
-	currentDatabase      string
-	isSysadmin           bool
-	viewServerState      bool
-	viewAnyDefinition    bool
-	alterAnyEventSession bool
-	viewDatabaseState    bool
-	alterCurrentDB       bool
-	createProcedure      bool
-	createTable          bool
-	isMaintDBOwner       bool
-	engineEdition        int
-	warnings             []string
+	login             string
+	currentDatabase   string
+	isSysadmin        bool
+	viewServerState   bool
+	viewAnyDefinition bool
+	viewDatabaseState bool
+	alterCurrentDB    bool
+	createProcedure   bool
+	createTable       bool
+	alterMaintDB      bool
+	isMaintDBOwner    bool
+	engineEdition     int
+	warnings          []string
 }
 
 type serverProbeRow struct {
-	IsSysadmin           *int
-	ViewServerState      *int
-	ViewAnyDefinition    *int
-	AlterAnyEventSession *int
-	ViewDatabaseState    *int
-	AlterCurrentDB       *int
-	EngineEdition        int
-	Login                string
-	CurrentDatabase      string
+	IsSysadmin        *int
+	ViewServerState   *int
+	ViewAnyDefinition *int
+	ViewDatabaseState *int
+	AlterCurrentDB    *int
+	EngineEdition     int
+	Login             string
+	CurrentDatabase   string
 }
 
 type maintProbeRow struct {
 	CreateProcedure *int
 	CreateTable     *int
-	IsDBOwner       *int
+	AlterDB         *int
+	ControlDB       *int
 }
 
 // CheckPermissions probes the connected login's capabilities across all SQL
@@ -112,7 +111,6 @@ SELECT
   IS_SRVROLEMEMBER('sysadmin')                                       AS is_sysadmin,
   HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW SERVER STATE')                 AS view_server_state,
   HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')               AS view_any_definition,
-  HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY EVENT SESSION')           AS alter_any_event_session,
   HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'VIEW DATABASE STATE')    AS view_database_state,
   HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER')                  AS alter_current_db,
   CAST(SERVERPROPERTY('EngineEdition') AS int)                       AS engine_edition,
@@ -121,9 +119,10 @@ SELECT
 
 const maintProbeSQL = `
 SELECT
-  HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE PROCEDURE')  AS create_procedure,
-  HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE TABLE')      AS create_table,
-  IS_ROLEMEMBER('db_owner')                          AS is_db_owner`
+  HAS_PERMS_BY_NAME(?, 'DATABASE', 'CREATE PROCEDURE') AS create_procedure,
+  HAS_PERMS_BY_NAME(?, 'DATABASE', 'CREATE TABLE')     AS create_table,
+  HAS_PERMS_BY_NAME(?, 'DATABASE', 'ALTER')            AS alter_db,
+  HAS_PERMS_BY_NAME(?, 'DATABASE', 'CONTROL')          AS control_db`
 
 func applyServerProbe(p *probe, row serverProbeRow) {
 	p.login = row.Login
@@ -132,19 +131,21 @@ func applyServerProbe(p *probe, row serverProbeRow) {
 	p.isSysadmin = isTrue(row.IsSysadmin)
 	p.viewServerState = isTrue(row.ViewServerState)
 	p.viewAnyDefinition = isTrue(row.ViewAnyDefinition)
-	p.alterAnyEventSession = isTrue(row.AlterAnyEventSession)
 	p.viewDatabaseState = isTrue(row.ViewDatabaseState)
 	p.alterCurrentDB = isTrue(row.AlterCurrentDB)
 }
 
+// probeMaintenanceDB checks database-scoped permissions by name instead of
+// issuing USE, so this operation does not mutate even the pooled session state.
 func probeMaintenanceDB(ctx context.Context, db *gorm.DB, maintenanceDatabase string, p *probe) {
 	var row maintProbeRow
-	err := db.WithContext(ctx).Connection(func(tx *gorm.DB) error {
-		if err := tx.Exec("USE " + bracketName(maintenanceDatabase)).Error; err != nil {
-			return err
-		}
-		return tx.Raw(maintProbeSQL).Scan(&row).Error
-	})
+	err := db.WithContext(ctx).Raw(
+		maintProbeSQL,
+		maintenanceDatabase,
+		maintenanceDatabase,
+		maintenanceDatabase,
+		maintenanceDatabase,
+	).Scan(&row).Error
 	if err != nil {
 		p.warnings = append(p.warnings, fmt.Sprintf(
 			"could not probe defrag permissions on %s: %v", maintenanceDatabase, err))
@@ -152,7 +153,10 @@ func probeMaintenanceDB(ctx context.Context, db *gorm.DB, maintenanceDatabase st
 	}
 	p.createProcedure = isTrue(row.CreateProcedure)
 	p.createTable = isTrue(row.CreateTable)
-	p.isMaintDBOwner = isTrue(row.IsDBOwner)
+	p.alterMaintDB = isTrue(row.AlterDB)
+	// db_owner implies CONTROL at database scope; keeping the field name preserves
+	// the report mapping's role shortcut without switching database context.
+	p.isMaintDBOwner = isTrue(row.ControlDB)
 }
 
 func isTrue(v *int) bool { return v != nil && *v == 1 }
