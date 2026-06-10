@@ -187,7 +187,7 @@ func operationDefs() []*pluginpb.OperationDef {
 				{Method: http.MethodGet},
 			},
 		},
-		mk(OpPermissions, "Diagnose SQL Server permissions for stats, traces, health scans, fixes, and defrag; returns missing GRANT statements."),
+		mk(OpPermissions, "Diagnose SQL Server permissions for stats, schema inspection, health scans, fixes, and defrag; returns missing GRANT statements."),
 		mk(OpRollbackList, "List recorded DROP INDEX rollback entries from dbo.MCAuditLog for a single database."),
 		mk(OpRollbackRestore, "Restore a dropped index by running rollback SQL from dbo.MCAuditLog asynchronously. Returns a job handle."),
 		mk(OpDefragHealth, "Scan index health: fragmentation, stale stats, duplicate/unused indexes, and table/index sizes; returns recommended fixes."),

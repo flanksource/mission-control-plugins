@@ -19,7 +19,6 @@ func BuildReport(p probe, maintenanceDatabase string) Report {
 	r.Categories = []CategoryResult{
 		metricsResult(p),
 		inspectionResult(p),
-		traceResult(p),
 		healthViewResult(p),
 		healthFixResult(p),
 		defragResult(p, maintenanceDatabase),
@@ -56,43 +55,21 @@ func inspectionResult(p probe) CategoryResult {
 	return c
 }
 
-func traceResult(p probe) CategoryResult {
-	c := CategoryResult{Category: CategoryTrace, Label: "Extended Events trace capture"}
-	if p.isSysadmin || (p.alterAnyEventSession && p.viewServerState) {
-		return granted(c, p)
-	}
-	if !p.alterAnyEventSession {
-		c.MissingPermissions = append(c.MissingPermissions, "ALTER ANY EVENT SESSION")
-		c.GrantStatements = append(c.GrantStatements, grantServer("ALTER ANY EVENT SESSION", p.login))
-	}
-	if !p.viewServerState {
-		c.MissingPermissions = append(c.MissingPermissions, "VIEW SERVER STATE")
-		c.GrantStatements = append(c.GrantStatements, grantServer("VIEW SERVER STATE", p.login))
-	}
-	return c
-}
-
 func healthViewResult(p probe) CategoryResult {
 	c := CategoryResult{Category: CategoryHealthView, Label: "Index health & fragmentation scan"}
-	if p.isSysadmin {
+	if p.isSysadmin || p.viewServerState || p.viewDatabaseState {
 		return granted(c, p)
 	}
-	if p.viewDatabaseState && p.viewServerState {
-		return granted(c, p)
-	}
-	if !p.viewDatabaseState {
-		c.MissingPermissions = append(c.MissingPermissions, "VIEW DATABASE STATE")
-		c.GrantStatements = append(c.GrantStatements, useDB(p.currentDatabase)+grantCurrent("VIEW DATABASE STATE", p.login))
-	}
-	if !p.viewServerState {
-		c.MissingPermissions = append(c.MissingPermissions, "VIEW SERVER STATE")
-		c.GrantStatements = append(c.GrantStatements, grantServer("VIEW SERVER STATE", p.login)+" -- needed for index usage counters")
+	c.MissingPermissions = []string{"VIEW DATABASE STATE"}
+	c.GrantStatements = []string{
+		useDB(p.currentDatabase) + grantCurrent("VIEW DATABASE STATE", p.login),
+		grantServer("VIEW SERVER STATE", p.login) + " -- server-wide alternative",
 	}
 	return c
 }
 
 func healthFixResult(p probe) CategoryResult {
-	c := CategoryResult{Category: CategoryHealthFix, Label: "Apply index fixes (rebuild, reorganize, update stats)"}
+	c := CategoryResult{Category: CategoryHealthFix, Label: "Apply index fixes (rebuild, reorganize, drop, update stats)"}
 	if !enterpriseEngineEditions[p.engineEdition] {
 		c.Note = "ONLINE/RESUMABLE rebuild unavailable on this edition; rebuilds run OFFLINE."
 	}
@@ -113,25 +90,23 @@ func healthFixResult(p probe) CategoryResult {
 
 func defragResult(p probe, maintenanceDatabase string) CategoryResult {
 	c := CategoryResult{Category: CategoryDefrag, Label: "Install & run AdaptiveIndexDefrag"}
-	if p.isSysadmin || p.isMaintDBOwner || (p.createProcedure && p.createTable) {
+	if p.isSysadmin || p.isMaintDBOwner || (p.createProcedure && p.createTable && p.alterMaintDB) {
 		return granted(c, p)
 	}
-	var missing []string
+	use := useDB(maintenanceDatabase)
 	if !p.createProcedure {
-		missing = append(missing, "CREATE PROCEDURE")
+		c.MissingPermissions = append(c.MissingPermissions, "CREATE PROCEDURE")
+		c.GrantStatements = append(c.GrantStatements, use+grantCurrent("CREATE PROCEDURE", p.login))
 	}
 	if !p.createTable {
-		missing = append(missing, "CREATE TABLE")
+		c.MissingPermissions = append(c.MissingPermissions, "CREATE TABLE")
+		c.GrantStatements = append(c.GrantStatements, use+grantCurrent("CREATE TABLE", p.login))
 	}
-	missing = append(missing, "ALTER")
-	c.MissingPermissions = missing
-	use := useDB(maintenanceDatabase)
-	c.GrantStatements = []string{
-		use + grantCurrent("CREATE PROCEDURE", p.login),
-		use + grantCurrent("CREATE TABLE", p.login),
-		use + grantCurrent("ALTER", p.login),
-		use + addRole("db_owner", p.login) + " -- broader role alternative",
+	if !p.alterMaintDB {
+		c.MissingPermissions = append(c.MissingPermissions, "ALTER")
+		c.GrantStatements = append(c.GrantStatements, use+grantCurrent("ALTER", p.login))
 	}
+	c.GrantStatements = append(c.GrantStatements, use+addRole("db_owner", p.login)+" -- broader role alternative")
 	return c
 }
 
