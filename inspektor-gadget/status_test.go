@@ -13,7 +13,7 @@ import (
 
 var _ = ginkgo.Describe("status", func() {
 	ginkgo.It("reports a missing namespace as not installed", func() {
-		status := inspectStatus(context.Background(), fake.NewSimpleClientset(), "gadget", defaultIGTag)
+		status := inspectStatus(context.Background(), fake.NewSimpleClientset(), "gadget")
 		Expect(status.Installed).To(BeFalse())
 		Expect(status.Ready).To(BeFalse())
 		Expect(status.Problems).To(ContainElement("Inspektor Gadget namespace is missing"))
@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("status", func() {
 			},
 		)
 
-		status := inspectStatus(context.Background(), cli, "gadget", defaultIGTag)
+		status := inspectStatus(context.Background(), cli, "gadget")
 		Expect(status.Installed).To(BeTrue())
 		Expect(status.Ready).To(BeTrue())
 		Expect(status.Version).To(Equal(defaultIGTag))

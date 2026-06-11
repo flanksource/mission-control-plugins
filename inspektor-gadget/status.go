@@ -16,7 +16,6 @@ type StatusResponse struct {
 	Installed     bool     `json:"installed"`
 	Ready         bool     `json:"ready"`
 	Version       string   `json:"version,omitempty"`
-	ExpectedTag   string   `json:"expectedTag"`
 	DaemonSet     string   `json:"daemonSet,omitempty"`
 	Desired       int32    `json:"desired,omitempty"`
 	ReadyPods     int32    `json:"readyPods,omitempty"`
@@ -29,11 +28,11 @@ func (p *InspektorGadgetPlugin) status(ctx context.Context, req sdk.InvokeCtx) (
 	if err != nil {
 		return nil, err
 	}
-	return inspectStatus(ctx, cli, p.settings.GadgetNamespace, p.settings.GadgetTag), nil
+	return inspectStatus(ctx, cli, p.settings.GadgetNamespace), nil
 }
 
-func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, expectedTag string) StatusResponse {
-	out := StatusResponse{Namespace: namespace, ExpectedTag: expectedTag, DaemonSet: "gadget"}
+func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace string) StatusResponse {
+	out := StatusResponse{Namespace: namespace, DaemonSet: "gadget"}
 	if _, err := cli.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{}); err != nil {
 		if apierrors.IsNotFound(err) {
 			out.Problems = append(out.Problems, "Inspektor Gadget namespace is missing")
@@ -59,9 +58,6 @@ func inspectStatus(ctx context.Context, cli kubernetes.Interface, namespace, exp
 		out.Problems = append(out.Problems, "DaemonSet pods are not all ready")
 	} else {
 		out.Ready = true
-	}
-	if expectedTag != "" && out.Version != "" && out.Version != expectedTag {
-		out.Problems = append(out.Problems, "DaemonSet image tag does not match plugin default")
 	}
 	return out
 }

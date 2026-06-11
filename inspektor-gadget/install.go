@@ -71,7 +71,7 @@ func (p *InspektorGadgetPlugin) install(ctx context.Context, req sdk.InvokeCtx) 
 	}
 	return InstallResult{
 		Applied: applied,
-		Status:  inspectStatus(ctx, cli, p.settings.GadgetNamespace, p.settings.GadgetTag),
+		Status:  inspectStatus(ctx, cli, p.settings.GadgetNamespace),
 	}, nil
 }
 
