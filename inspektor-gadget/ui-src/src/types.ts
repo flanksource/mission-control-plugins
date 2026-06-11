@@ -41,7 +41,6 @@ export type Status = {
   installed: boolean;
   ready: boolean;
   version?: string;
-  expectedTag: string;
   desired?: number;
   readyPods?: number;
   problems?: string[];
