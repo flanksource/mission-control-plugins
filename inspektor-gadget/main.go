@@ -54,7 +54,6 @@ type InspektorGadgetPlugin struct {
 
 type PluginSettings struct {
 	GadgetNamespace string
-	GadgetTag       string
 	MaxDurationSec  int
 	MaxEvents       int
 	MaxSessions     int
@@ -63,7 +62,6 @@ type PluginSettings struct {
 func defaultSettings() PluginSettings {
 	return PluginSettings{
 		GadgetNamespace: "gadget",
-		GadgetTag:       defaultIGTag,
 		MaxDurationSec:  900,
 		MaxEvents:       10000,
 		MaxSessions:     defaultMaxRuns,
@@ -96,9 +94,6 @@ func (p *InspektorGadgetPlugin) Configure(_ context.Context, settings map[string
 	next := p.settings
 	if v, ok := settings["gadgetNamespace"].(string); ok && v != "" {
 		next.GadgetNamespace = v
-	}
-	if v, ok := settings["gadgetTag"].(string); ok && v != "" {
-		next.GadgetTag = v
 	}
 	if v, ok := numberSetting(settings, "maxDurationSec"); ok && v > 0 {
 		next.MaxDurationSec = v

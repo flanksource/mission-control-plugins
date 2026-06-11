@@ -34,7 +34,7 @@ type TraceEventsParams struct {
 }
 
 func (p *InspektorGadgetPlugin) tracesList(_ context.Context, _ sdk.InvokeCtx) (any, error) {
-	return supportedGadgets(p.settings.GadgetTag), nil
+	return supportedGadgets(defaultIGTag), nil
 }
 
 func (p *InspektorGadgetPlugin) traceList(ctx context.Context, req sdk.InvokeCtx) (any, error) {
@@ -96,7 +96,7 @@ func (p *InspektorGadgetPlugin) traceStart(ctx context.Context, req sdk.InvokeCt
 	if p.sessions.RunningCount() >= p.settings.MaxSessions {
 		return nil, fmt.Errorf("maximum running sessions reached (%d)", p.settings.MaxSessions)
 	}
-	gadget, ok := gadgetByID(params.Gadget, p.settings.GadgetTag)
+	gadget, ok := gadgetByID(params.Gadget, defaultIGTag)
 	if !ok {
 		return nil, fmt.Errorf("unsupported gadget %q", params.Gadget)
 	}

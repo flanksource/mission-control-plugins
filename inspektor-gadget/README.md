@@ -70,7 +70,6 @@ The plugin supports these `spec.properties` settings:
 | Property          | Default   | Description                                                    |
 | ----------------- | --------- | -------------------------------------------------------------- |
 | `gadgetNamespace` | `gadget`  | Namespace where Inspektor Gadget is installed.                 |
-| `gadgetTag`       | `v0.53.0` | Expected Inspektor Gadget image tag and tag used for gadget images. |
 | `maxDurationSec`  | `900`     | Maximum trace duration in seconds.                             |
 | `maxEvents`       | `10000`   | Maximum buffered events per session.                           |
 | `maxSessions`     | `5`       | Maximum concurrent trace sessions.                             |
