@@ -221,12 +221,6 @@ func buildGopsDiscoveryScript(dirs []string) string {
 	return strings.ReplaceAll(gopsDiscoveryScript, "__GOPS_DIRS__", strings.Join(quoted, " "))
 }
 
-// parseGopsDiscovery parses discovery script process rows and drops incomplete
-// entries.
-func parseGopsDiscovery(raw string) []GopsProcess {
-	return parseGopsDiscoveryResult(raw).Processes
-}
-
 // parseGopsDiscoveryResult parses discovery script output lines in the forms
 // "pid=<pid> port=<port> cmd=<cmdline>" and "diag=<message>".
 func parseGopsDiscoveryResult(raw string) GopsDiscoveryResult {
