@@ -151,6 +151,8 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		dirs = append([]string{params.GopsConfigDir}, dirs...)
 	}
 
+	var discoveredGopsPorts []int
+	gopsPortPID := map[int]int{}
 	if useGops && gopsPort == 0 {
 		discoverCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
@@ -158,10 +160,14 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		procs, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
 		if err != nil {
 			diagnostics = append(diagnostics, err.Error())
-		} else if proc, ok := selectGopsProcess(procs, pid); ok {
-			gopsPort = proc.Port
-			pid = proc.PID
-			diagnostics = append(diagnostics, fmt.Sprintf("discovered gops pid=%d port=%d", proc.PID, proc.Port))
+		} else if candidates := orderGopsCandidates(procs, pid); len(candidates) > 0 {
+			for _, proc := range candidates {
+				discoveredGopsPorts = append(discoveredGopsPorts, proc.Port)
+				if _, ok := gopsPortPID[proc.Port]; !ok {
+					gopsPortPID[proc.Port] = proc.PID
+				}
+			}
+			diagnostics = append(diagnostics, fmt.Sprintf("discovered gops: %s", formatGopsCandidates(candidates)))
 		} else if params.PID > 0 {
 			diagnostics = append(diagnostics, fmt.Sprintf("no gops port file found for pid %d", params.PID))
 		} else {
@@ -171,9 +177,20 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 
 	gopsPorts := []int{}
 	if useGops {
-		gopsPorts = gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPorts)
-		if gopsPort == 0 && len(gopsPorts) > 0 {
-			diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports: %s", formatPorts(gopsPorts)))
+		switch {
+		case len(discoveredGopsPorts) > 0:
+			gopsPorts = append(gopsPorts, discoveredGopsPorts...)
+			fallbackPorts := uniquePositiveInts(p.settings.DefaultGopsPorts...)
+			if len(fallbackPorts) > 0 {
+				gopsPorts = append(gopsPorts, fallbackPorts...)
+				diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports after discovered candidates: %s", formatPorts(fallbackPorts)))
+			}
+			gopsPorts = uniquePositiveInts(gopsPorts...)
+		default:
+			gopsPorts = gopsCandidatePorts(gopsPort, p.settings.DefaultGopsPorts)
+			if gopsPort == 0 && len(gopsPorts) > 0 {
+				diagnostics = append(diagnostics, fmt.Sprintf("trying default gops ports: %s", formatPorts(gopsPorts)))
+			}
 		}
 	}
 
@@ -242,6 +259,9 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		sess.GopsRemote = match.Remote
 		sess.GopsLocal = match.Local
 		sess.GopsAvailable = true
+		if winnerPID, ok := gopsPortPID[match.Remote]; ok {
+			sess.PID = winnerPID
+		}
 	}
 	if match, fwd, ok := firstWorkingForward(ctx, restCfg, pod.Namespace, pod.Name, pprofCandidates, func(ctx context.Context, port int) bool {
 		return probePprof(ctx, port, pprofBase)
@@ -754,6 +774,14 @@ func formatPorts(ports []int) string {
 	parts := make([]string, 0, len(ports))
 	for _, port := range uniquePositiveInts(ports...) {
 		parts = append(parts, fmt.Sprint(port))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatGopsCandidates(procs []GopsProcess) string {
+	parts := make([]string, 0, len(procs))
+	for _, proc := range procs {
+		parts = append(parts, fmt.Sprintf("pid=%d port=%d", proc.PID, proc.Port))
 	}
 	return strings.Join(parts, ", ")
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -38,49 +39,100 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 }
 
 // gopsDiscoveryScript locates gops port files inside a container, printing a
-// "pid=<pid> port=<port> cmd=<cmdline>" line per live agent. It resolves config
-// dirs from each process environ the way gops does
-// (GOPS_CONFIG_DIR > $XDG_CONFIG_HOME/gops > $HOME/.config/gops) so it works for
-// any user/image, and keeps only files whose port is currently listening (in
-// /proc/net/tcp{,6}) so orphaned files from a non-graceful exit are ignored.
-// __GOPS_DIRS__ is replaced with the shell-quoted fallback directories.
+// "pid=<pid> port=<port> cmd=<cmdline>" line per agent. It resolves config dirs
+// from each process environ the way gops does (GOPS_CONFIG_DIR >
+// $XDG_CONFIG_HOME/gops > $HOME/.config/gops, then the uid's /etc/passwd home),
+// so it works for any user/image. A file is reported only when its PID still
+// exists and, when tcp tables are readable, that PID owns a LISTEN socket for
+// the recorded port, so files orphaned by a non-graceful exit are ignored. Dirs
+// are kept newline-delimited so paths with spaces survive. __GOPS_DIRS__ is
+// replaced with the shell-quoted fallback directories; callers still verify each
+// reported agent by probing it.
 const gopsDiscoveryScript = `set +e
+NL='
+'
 have_tcp=0
 listening=""
 for tcpf in /proc/net/tcp /proc/net/tcp6; do
   [ -r "$tcpf" ] || continue
   have_tcp=1
-  while read -r sl laddr raddr st rest; do
+  while read -r sl laddr raddr st txrx tr tm retr uid timeout inode rest; do
     [ "$st" = "0A" ] || continue
-    listening="$listening ${laddr##*:} "
+    [ -n "$inode" ] || continue
+    listening="$listening${laddr##*:} $inode$NL"
   done < "$tcpf"
 done
 
 patterns=""
 add_dir() {
   [ -n "$1" ] || return 0
-  case " $patterns " in *" $1 "*) return 0 ;; esac
-  patterns="$patterns $1"
+  case "$NL$patterns$NL" in *"$NL$1$NL"*) return 0 ;; esac
+  patterns="$patterns$NL$1"
 }
 env_val() {
   tr '\000' '\n' < "$2" 2>/dev/null | while IFS= read -r kv; do
     case "$kv" in "$1="*) printf '%s' "${kv#$1=}"; break ;; esac
   done
 }
+passwd_home() {
+  while IFS=: read -r pn pp pu pg pc ph ps; do
+    [ "$pu" = "$1" ] || continue
+    printf '%s' "$ph"; break
+  done < /etc/passwd 2>/dev/null
+}
+passwd_home_for_pid() {
+  uid=$(while read -r sk sv srest; do [ "$sk" = "Uid:" ] && { printf '%s' "$sv"; break; }; done < "/proc/$1/status" 2>/dev/null)
+  [ -n "$uid" ] || return 1
+  passwd_home "$uid"
+}
+add_process_config_dir() {
+  g=$(env_val GOPS_CONFIG_DIR "/proc/$1/environ")
+  x=$(env_val XDG_CONFIG_HOME "/proc/$1/environ")
+  h=$(env_val HOME "/proc/$1/environ")
+  if [ -n "$g" ]; then add_dir "$g"; return 0; fi
+  if [ -n "$x" ]; then
+    case "$x" in
+      /*) add_dir "$x/gops"; return 0 ;;
+    esac
+    hd=$(passwd_home_for_pid "$1") && [ -n "$hd" ] && { add_dir "$hd/.config/gops"; return 0; }
+    [ -n "$h" ] && add_dir "$h/.config/gops"
+    return 0
+  fi
+  if [ -n "$h" ]; then add_dir "$h/.config/gops"; return 0; fi
+  hd=$(passwd_home_for_pid "$1") && [ -n "$hd" ] && add_dir "$hd/.config/gops"
+}
+listening_inodes() {
+  printf '%s' "$listening" | while IFS=' ' read -r lp linode; do
+    [ "$lp" = "$1" ] && [ -n "$linode" ] && printf '%s\n' "$linode"
+  done
+}
+pid_has_socket_inode() {
+  for fd in "/proc/$1/fd"/*; do
+    [ -e "$fd" ] || continue
+    target=$(readlink "$fd" 2>/dev/null) || continue
+    [ "$target" = "socket:[$2]" ] && return 0
+  done
+  return 1
+}
+pid_listens_on_port() {
+  hexport=$(printf '%04X' "$2" 2>/dev/null) || return 1
+  for inode in $(listening_inodes "$hexport"); do
+    pid_has_socket_inode "$1" "$inode" && return 0
+  done
+  return 1
+}
 
 for dir in __GOPS_DIRS__; do add_dir "$dir"; done
 
+# Mirror gops' config-dir resolution per process:
+# GOPS_CONFIG_DIR > $XDG_CONFIG_HOME/gops > $HOME/.config/gops > <passwd home>/.config/gops.
 for envf in /proc/[0-9]*/environ; do
   [ -r "$envf" ] || continue
-  g=$(env_val GOPS_CONFIG_DIR "$envf")
-  x=$(env_val XDG_CONFIG_HOME "$envf")
-  h=$(env_val HOME "$envf")
-  if [ -n "$g" ]; then add_dir "$g"
-  elif [ -n "$x" ]; then add_dir "$x/gops"
-  elif [ -n "$h" ]; then add_dir "$h/.config/gops"
-  fi
+  spid=${envf#/proc/}; spid=${spid%/environ}
+  add_process_config_dir "$spid"
 done
 
+IFS=$NL
 for dir in $patterns; do
   [ -n "$dir" ] || continue
   for expanded in $dir; do
@@ -91,11 +143,9 @@ for dir in $patterns; do
       case "$pid" in ""|*[!0-9]*) continue ;; esac
       port=$(cat "$f" 2>/dev/null | tr -dc '0-9')
       [ -n "$port" ] || continue
+      [ -d "/proc/$pid" ] || continue
       if [ "$have_tcp" = 1 ]; then
-        hexport=$(printf '%04X' "$port" 2>/dev/null)
-        case "$listening" in *" $hexport "*) ;; *) continue ;; esac
-      else
-        [ -d "/proc/$pid" ] || continue
+        pid_listens_on_port "$pid" "$port" || continue
       fi
       cmd=""
       if [ -r "/proc/$pid/cmdline" ]; then
@@ -158,28 +208,33 @@ func parseGopsDiscovery(raw string) []GopsProcess {
 	return out
 }
 
-// selectGopsProcess returns the requested PID when provided; otherwise it picks
-// the lowest PID from the discovered gops processes as the deterministic default.
-func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
+// orderGopsCandidates returns the discovered processes in the order they should
+// be tried: only the requested PID when one is given, otherwise every process
+// sorted by ascending PID so the lowest PID (usually the main process) is first.
+// Returning all of them lets callers probe each, so a stale-but-listening file
+// can't shadow a real agent that happens to sort lower.
+func orderGopsCandidates(processes []GopsProcess, pid int) []GopsProcess {
 	if pid > 0 {
 		for _, proc := range processes {
 			if proc.PID == pid {
-				return proc, true
+				return []GopsProcess{proc}
 			}
 		}
-		return GopsProcess{}, false
+		return nil
 	}
-	if len(processes) == 0 {
-		return GopsProcess{}, false
-	}
+	out := append([]GopsProcess(nil), processes...)
+	sort.Slice(out, func(i, j int) bool { return out[i].PID < out[j].PID })
+	return out
+}
 
-	best := processes[0]
-	for _, proc := range processes[1:] {
-		if proc.PID < best.PID {
-			best = proc
-		}
+// selectGopsProcess returns the requested PID when provided; otherwise it picks
+// the lowest PID from the discovered gops processes as the deterministic default.
+func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
+	ordered := orderGopsCandidates(processes, pid)
+	if len(ordered) == 0 {
+		return GopsProcess{}, false
 	}
-	return best, true
+	return ordered[0], true
 }
 
 func shellQuote(s string) string {
