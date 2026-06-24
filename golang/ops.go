@@ -157,7 +157,8 @@ func (p *GolangPlugin) sessionCreate(ctx context.Context, req sdk.InvokeCtx) (an
 		discoverCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 
-		procs, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
+		procs, discoveryDiagnostics, err := discoverGopsProcesses(discoverCtx, restCfg, pod.Namespace, pod.Name, container, dirs)
+		diagnostics = appendPrefixedDiagnostics(diagnostics, "gops discovery: ", discoveryDiagnostics)
 		if err != nil {
 			diagnostics = append(diagnostics, err.Error())
 		} else if candidates := orderGopsCandidates(procs, pid); len(candidates) > 0 {
@@ -784,6 +785,16 @@ func formatGopsCandidates(procs []GopsProcess) string {
 		parts = append(parts, fmt.Sprintf("pid=%d port=%d", proc.PID, proc.Port))
 	}
 	return strings.Join(parts, ", ")
+}
+
+func appendPrefixedDiagnostics(dst []string, prefix string, lines []string) []string {
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		dst = append(dst, prefix+line)
+	}
+	return dst
 }
 
 func formatCandidatePorts(candidates []portCandidate) string {

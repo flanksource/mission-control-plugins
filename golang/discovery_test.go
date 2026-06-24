@@ -6,14 +6,16 @@ import (
 )
 
 var _ = ginkgo.Describe("gops discovery parsing", func() {
-	ginkgo.It("parses pid port and command rows", func() {
-		got := parseGopsDiscovery("pid=12 port=4567 cmd=/app/server --flag\npid=x port=1\npid=13 port=8901 cmd=\n")
+	ginkgo.It("parses pid port command rows and diagnostics", func() {
+		result := parseGopsDiscoveryResult("diag=checking /tmp/gops\npid=12 port=4567 cmd=/app/server --flag\npid=x port=1\npid=13 port=8901 cmd=\n")
+		got := result.Processes
 		Expect(got).To(HaveLen(2))
 		Expect(got[0].PID).To(Equal(12))
 		Expect(got[0].Port).To(Equal(4567))
 		Expect(got[0].Command).To(Equal("/app/server --flag"))
 		Expect(got[1].PID).To(Equal(13))
 		Expect(got[1].Port).To(Equal(8901))
+		Expect(result.Diagnostics).To(Equal([]string{"checking /tmp/gops"}))
 	})
 
 	ginkgo.It("selects a requested pid", func() {

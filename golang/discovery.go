@@ -19,9 +19,17 @@ type GopsProcess struct {
 	Command string `json:"command,omitempty"`
 }
 
+// GopsDiscoveryResult is the parsed output from the in-container discovery
+// script.
+type GopsDiscoveryResult struct {
+	Processes   []GopsProcess
+	Diagnostics []string
+}
+
 // discoverGopsProcesses executes the discovery script in the selected container
-// and returns the gops pid/port entries that are valid for running processes.
-func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace, pod, container string, dirs []string) ([]GopsProcess, error) {
+// and returns the gops pid/port entries that are valid for running processes,
+// plus diagnostics describing which paths were inspected.
+func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace, pod, container string, dirs []string) ([]GopsProcess, []string, error) {
 	script := buildGopsDiscoveryScript(dirs)
 	var stdout, stderr bytes.Buffer
 	if err := golangk8s.ExecInPod(ctx, restCfg, golangk8s.ExecOptions{
@@ -32,10 +40,15 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		Stdout:    &stdout,
 		Stderr:    &stderr,
 	}); err != nil {
-		return nil, fmt.Errorf("discover gops ports: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+		result := parseGopsDiscoveryResult(stdout.String())
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			result.Diagnostics = append(result.Diagnostics, "stderr: "+msg)
+		}
+		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
 	}
 
-	return parseGopsDiscovery(stdout.String()), nil
+	result := parseGopsDiscoveryResult(stdout.String())
+	return result.Processes, result.Diagnostics, nil
 }
 
 // gopsDiscoveryScript locates gops port files inside a container, printing a
@@ -51,17 +64,26 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 const gopsDiscoveryScript = `set +e
 NL='
 '
+diag() { printf 'diag=%s\n' "$*"; }
+
 have_tcp=0
+listen_count=0
 listening=""
 for tcpf in /proc/net/tcp /proc/net/tcp6; do
   [ -r "$tcpf" ] || continue
   have_tcp=1
-  while read -r sl laddr raddr st txrx tr tm retr uid timeout inode rest; do
+  while read -r sl laddr raddr st txrx trtm retrnsmt uid timeout inode rest; do
     [ "$st" = "0A" ] || continue
     [ -n "$inode" ] || continue
+    listen_count=$((listen_count + 1))
     listening="$listening${laddr##*:} $inode$NL"
   done < "$tcpf"
 done
+if [ "$have_tcp" = 1 ]; then
+  diag "tcp listen sockets visible: $listen_count"
+else
+  diag "tcp listen socket tables are not readable; only PID existence will be validated"
+fi
 
 patterns=""
 add_dir() {
@@ -126,33 +148,56 @@ for dir in __GOPS_DIRS__; do add_dir "$dir"; done
 
 # Mirror gops' config-dir resolution per process:
 # GOPS_CONFIG_DIR > $XDG_CONFIG_HOME/gops > $HOME/.config/gops > <passwd home>/.config/gops.
+env_seen=0
+env_readable=0
+env_unreadable=0
 for envf in /proc/[0-9]*/environ; do
-  [ -r "$envf" ] || continue
+  case "$envf" in *'['*) continue ;; esac
+  env_seen=$((env_seen + 1))
+  if [ ! -r "$envf" ]; then
+    env_unreadable=$((env_unreadable + 1))
+    continue
+  fi
+  env_readable=$((env_readable + 1))
   spid=${envf#/proc/}; spid=${spid%/environ}
   add_process_config_dir "$spid"
 done
 
+diag "process environ files: seen=$env_seen readable=$env_readable unreadable=$env_unreadable"
+diag "resolved gops config dirs:"
 IFS=$NL
+for dir in $patterns; do
+  [ -n "$dir" ] && diag "  $dir"
+done
+
 for dir in $patterns; do
   [ -n "$dir" ] || continue
   for expanded in $dir; do
-    [ -d "$expanded" ] || continue
+    if [ ! -d "$expanded" ]; then
+      diag "gops config dir not found: $expanded"
+      continue
+    fi
+    diag "checking gops config dir: $expanded"
+    file_count=0
     for f in "$expanded"/*; do
       [ -f "$f" ] || continue
+      file_count=$((file_count + 1))
       pid=$(basename "$f")
-      case "$pid" in ""|*[!0-9]*) continue ;; esac
+      case "$pid" in ""|*[!0-9]*) diag "ignored non-pid file: $f"; continue ;; esac
       port=$(cat "$f" 2>/dev/null | tr -dc '0-9')
-      [ -n "$port" ] || continue
-      [ -d "/proc/$pid" ] || continue
+      [ -n "$port" ] || { diag "ignored $f: no numeric port"; continue; }
+      [ -d "/proc/$pid" ] || { diag "ignored $f: pid $pid is not running"; continue; }
       if [ "$have_tcp" = 1 ]; then
-        pid_listens_on_port "$pid" "$port" || continue
+        pid_listens_on_port "$pid" "$port" || { diag "ignored $f: pid $pid does not own a LISTEN socket on port $port"; continue; }
       fi
       cmd=""
       if [ -r "/proc/$pid/cmdline" ]; then
         cmd=$(tr '\000' ' ' <"/proc/$pid/cmdline" 2>/dev/null)
       fi
+      diag "candidate gops file: path=$f pid=$pid port=$port"
       printf 'pid=%s port=%s cmd=%s\n' "$pid" "$port" "$cmd"
     done
+    [ "$file_count" = 0 ] && diag "no files in gops config dir: $expanded"
   done
 done
 `
@@ -171,13 +216,25 @@ func buildGopsDiscoveryScript(dirs []string) string {
 	return strings.ReplaceAll(gopsDiscoveryScript, "__GOPS_DIRS__", strings.Join(quoted, " "))
 }
 
-// parseGopsDiscovery parses discovery script output lines in the form
-// "pid=<pid> port=<port> cmd=<cmdline>" and drops incomplete entries.
+// parseGopsDiscovery parses discovery script process rows and drops incomplete
+// entries.
 func parseGopsDiscovery(raw string) []GopsProcess {
-	var out []GopsProcess
+	return parseGopsDiscoveryResult(raw).Processes
+}
+
+// parseGopsDiscoveryResult parses discovery script output lines in the forms
+// "pid=<pid> port=<port> cmd=<cmdline>" and "diag=<message>".
+func parseGopsDiscoveryResult(raw string) GopsDiscoveryResult {
+	var result GopsDiscoveryResult
 	for line := range strings.SplitSeq(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
+			continue
+		}
+		if diag, ok := strings.CutPrefix(line, "diag="); ok {
+			if diag = strings.TrimSpace(diag); diag != "" {
+				result.Diagnostics = append(result.Diagnostics, diag)
+			}
 			continue
 		}
 
@@ -201,11 +258,11 @@ func parseGopsDiscovery(raw string) []GopsProcess {
 		}
 
 		if proc.PID > 0 && proc.Port > 0 {
-			out = append(out, proc)
+			result.Processes = append(result.Processes, proc)
 		}
 	}
 
-	return out
+	return result
 }
 
 // orderGopsCandidates returns the discovered processes in the order they should
