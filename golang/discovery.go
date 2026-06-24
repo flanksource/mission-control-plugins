@@ -36,7 +36,8 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		Namespace: namespace,
 		Pod:       pod,
 		Container: container,
-		Command:   []string{"sh", "-c", script},
+		Command:   []string{"sh", "-s"},
+		Stdin:     strings.NewReader(script),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
 	}); err != nil {
@@ -44,7 +45,11 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
 			result.Diagnostics = append(result.Diagnostics, "stderr: "+msg)
 		}
-		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+		if len(result.Processes) > 0 {
+			result.Diagnostics = append(result.Diagnostics, "exec error after candidates were found: "+err.Error())
+			return result.Processes, result.Diagnostics, nil
+		}
+		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %w", err)
 	}
 
 	result := parseGopsDiscoveryResult(stdout.String())
@@ -200,6 +205,7 @@ for dir in $patterns; do
     [ "$file_count" = 0 ] && diag "no files in gops config dir: $expanded"
   done
 done
+exit 0
 `
 
 // buildGopsDiscoveryScript fills gopsDiscoveryScript with the shell-quoted
@@ -214,12 +220,6 @@ func buildGopsDiscoveryScript(dirs []string) string {
 		quoted = append(quoted, shellQuote(dir))
 	}
 	return strings.ReplaceAll(gopsDiscoveryScript, "__GOPS_DIRS__", strings.Join(quoted, " "))
-}
-
-// parseGopsDiscovery parses discovery script process rows and drops incomplete
-// entries.
-func parseGopsDiscovery(raw string) []GopsProcess {
-	return parseGopsDiscoveryResult(raw).Processes
 }
 
 // parseGopsDiscoveryResult parses discovery script output lines in the forms
