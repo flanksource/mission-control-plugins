@@ -36,7 +36,8 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		Namespace: namespace,
 		Pod:       pod,
 		Container: container,
-		Command:   []string{"sh", "-c", script},
+		Command:   []string{"sh", "-s"},
+		Stdin:     strings.NewReader(script),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
 	}); err != nil {
@@ -44,11 +45,11 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
 			result.Diagnostics = append(result.Diagnostics, "stderr: "+msg)
 		}
-		result.Diagnostics = append(result.Diagnostics, "exec error: "+compactExecError(err))
 		if len(result.Processes) > 0 {
+			result.Diagnostics = append(result.Diagnostics, "exec error after candidates were found: "+err.Error())
 			return result.Processes, result.Diagnostics, nil
 		}
-		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %s", compactExecError(err))
+		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %w", err)
 	}
 
 	result := parseGopsDiscoveryResult(stdout.String())
@@ -291,14 +292,6 @@ func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
 		return GopsProcess{}, false
 	}
 	return ordered[0], true
-}
-
-func compactExecError(err error) string {
-	msg := strings.TrimSpace(err.Error())
-	if before, after, ok := strings.Cut(msg, "] failed: "); ok && strings.Contains(before, "exec [") {
-		return strings.TrimSpace(after)
-	}
-	return msg
 }
 
 func shellQuote(s string) string {
