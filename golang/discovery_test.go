@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"strings"
+
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -16,6 +19,15 @@ var _ = ginkgo.Describe("gops discovery parsing", func() {
 		Expect(got[1].PID).To(Equal(13))
 		Expect(got[1].Port).To(Equal(8901))
 		Expect(result.Diagnostics).To(Equal([]string{"checking /tmp/gops"}))
+	})
+
+	ginkgo.It("keeps the discovery script exit status successful", func() {
+		Expect(strings.TrimSpace(buildGopsDiscoveryScript(nil))).To(HaveSuffix("exit 0"))
+	})
+
+	ginkgo.It("redacts the inline script from exec errors", func() {
+		err := errors.New("exec [sh -c set +e\nvery long script] failed: command terminated with exit code 1")
+		Expect(compactExecError(err)).To(Equal("command terminated with exit code 1"))
 	})
 
 	ginkgo.It("selects a requested pid", func() {

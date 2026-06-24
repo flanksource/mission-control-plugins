@@ -44,7 +44,11 @@ func discoverGopsProcesses(ctx context.Context, restCfg *rest.Config, namespace,
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
 			result.Diagnostics = append(result.Diagnostics, "stderr: "+msg)
 		}
-		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+		result.Diagnostics = append(result.Diagnostics, "exec error: "+compactExecError(err))
+		if len(result.Processes) > 0 {
+			return result.Processes, result.Diagnostics, nil
+		}
+		return nil, result.Diagnostics, fmt.Errorf("discover gops ports: %s", compactExecError(err))
 	}
 
 	result := parseGopsDiscoveryResult(stdout.String())
@@ -200,6 +204,7 @@ for dir in $patterns; do
     [ "$file_count" = 0 ] && diag "no files in gops config dir: $expanded"
   done
 done
+exit 0
 `
 
 // buildGopsDiscoveryScript fills gopsDiscoveryScript with the shell-quoted
@@ -292,6 +297,14 @@ func selectGopsProcess(processes []GopsProcess, pid int) (GopsProcess, bool) {
 		return GopsProcess{}, false
 	}
 	return ordered[0], true
+}
+
+func compactExecError(err error) string {
+	msg := strings.TrimSpace(err.Error())
+	if before, after, ok := strings.Cut(msg, "] failed: "); ok && strings.Contains(before, "exec [") {
+		return strings.TrimSpace(after)
+	}
+	return msg
 }
 
 func shellQuote(s string) string {
