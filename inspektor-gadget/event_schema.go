@@ -50,10 +50,6 @@ func procCol() EventColumn {
 	return col("proc", "Process", "process")
 }
 
-func percentCol(path, label string) EventColumn {
-	return col(path, label, "percent")
-}
-
 var eventSchemas = map[string]EventSchema{
 	"audit_seccomp": {
 		SourceStruct: "auditSeccompEvent",
