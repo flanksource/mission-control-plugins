@@ -12,6 +12,11 @@ type EventColumn struct {
 	Kind        string `json:"kind,omitempty"`
 	Description string `json:"description,omitempty"`
 	Hidden      bool   `json:"hidden,omitempty"`
+	// Filterable indicates whether the UI should expose a filter input
+	// for this column. Defaults to true; set to false on visible columns
+	// where a filter has no practical use (high-cardinality metrics, raw
+	// IDs, JSON blobs, etc.).
+	Filterable bool `json:"filterable,omitempty"`
 }
 
 func eventSchemaForGadget(id string) *EventSchema {
@@ -22,7 +27,17 @@ func eventSchemaForGadget(id string) *EventSchema {
 }
 
 func col(path, label, kind string) EventColumn {
-	return EventColumn{Key: path, Path: path, Label: label, Kind: kind}
+	return EventColumn{Key: path, Path: path, Label: label, Kind: kind, Filterable: true}
+}
+
+// noFilter wraps a visible column declaration to suppress the UI's
+// per-column filter input. Use for high-cardinality numerics (e.g. RSS
+// bytes, CPU usage, latency), raw IDs (PIDs, FDs, inodes), and JSON
+// blobs where a filter input would be noise.
+func noFilter(path, label, kind string) EventColumn {
+	c := col(path, label, kind)
+	c.Filterable = false
+	return c
 }
 
 func hidden(path, label, kind string) EventColumn {
@@ -56,22 +71,22 @@ var eventSchemas = map[string]EventSchema{
 			col("gadgetID", "Gadget ID", "text"),
 			col("progName", "Program", "text"),
 			col("progType", "Program Type", "text"),
-			col("progID", "Program ID", "number"),
-			col("mapCount", "Maps", "number"),
-			col("mapMemory", "Map Memory", "bytes"),
-			col("runcount", "Runs", "number"),
+			noFilter("progID", "Program ID", "number"),
+			noFilter("mapCount", "Maps", "number"),
+			noFilter("mapMemory", "Map Memory", "bytes"),
+			noFilter("runcount", "Runs", "number"),
 			col("runtime", "Runtime", "text"),
-			col("comms", "Commands", "json"),
-			col("pids", "PIDs", "json"),
+			noFilter("comms", "Commands", "json"),
+			noFilter("pids", "PIDs", "json"),
 		},
 	},
 	"fdpass": {
 		SourceStruct: "ExpectedFdpassEvent",
 		Columns: []EventColumn{
 			procCol(),
-			col("socket_ino", "Socket Inode", "number"),
-			col("sockfd", "Socket FD", "number"),
-			col("fd", "FD", "number"),
+			noFilter("socket_ino", "Socket Inode", "number"),
+			noFilter("sockfd", "Socket FD", "number"),
+			noFilter("fd", "FD", "number"),
 			col("file", "File", "text"),
 		},
 	},
@@ -82,16 +97,16 @@ var eventSchemas = map[string]EventSchema{
 			col("tracer_proc", "Tracer", "process"),
 			col("type", "Type", "text"),
 			col("name", "Name", "text"),
-			col("prio", "Priority", "number"),
+			noFilter("prio", "Priority", "number"),
 			col("fa_mask", "Fanotify Mask", "text"),
 			col("i_mask", "Inotify Mask", "text"),
 			col("fa_type", "Fanotify Type", "text"),
-			col("fa_pid", "Fanotify PID", "number"),
+			noFilter("fa_pid", "Fanotify PID", "number"),
 			col("fa_response", "Fanotify Response", "text"),
-			col("i_wd", "Watch", "number"),
-			col("i_cookie", "Cookie", "number"),
-			col("i_ino", "Inode", "number"),
-			col("i_ino_dir", "Dir Inode", "number"),
+			noFilter("i_wd", "Watch", "number"),
+			noFilter("i_cookie", "Cookie", "number"),
+			noFilter("i_ino", "Inode", "number"),
+			noFilter("i_ino_dir", "Dir Inode", "number"),
 			hidden("tracee_mntns_id", "Tracee MntNS", "number"),
 			hidden("tracer_mntns_id", "Tracer MntNS", "number"),
 			hidden("tracee_uid", "Tracee UID", "number"),
@@ -106,38 +121,38 @@ var eventSchemas = map[string]EventSchema{
 		SourceStruct: "profileCPUEntry",
 		Columns: []EventColumn{
 			col("proc.comm", "Command", "text"),
-			col("samples", "Samples", "number"),
-			col("user_stack", "User Stack", "json"),
-			col("kern_stack", "Kernel Stack", "json"),
+			noFilter("samples", "Samples", "number"),
+			noFilter("user_stack", "User Stack", "json"),
+			noFilter("kern_stack", "Kernel Stack", "json"),
 		},
 	},
 	"profile_cuda": {
 		SourceStruct: "profileCUDAEntry",
 		Columns: []EventColumn{
 			col("proc.comm", "Command", "text"),
-			col("count", "Count", "number"),
-			col("size", "Size", "bytes"),
-			col("ustack_raw.symbols", "User Stack", "json"),
+			noFilter("count", "Count", "number"),
+			noFilter("size", "Size", "bytes"),
+			noFilter("ustack_raw.symbols", "User Stack", "json"),
 		},
 	},
 	"profile_blockio": {
 		SourceStruct: "profileBlockIOEntry",
 		Columns: []EventColumn{
-			col("latency", "Latency", "number"),
+			noFilter("latency", "Latency", "number"),
 		},
 	},
 	"profile_tcprtt": {
 		SourceStruct: "profileTCPRTTEntry",
 		Columns: []EventColumn{
-			col("latency", "Latency", "number"),
+			noFilter("latency", "Latency", "number"),
 		},
 	},
 	"snapshot_file": {
 		SourceStruct: "ExpectedSnapshotFileEvent",
 		Columns: []EventColumn{
 			col("comm", "Command", "text"),
-			col("pid", "PID", "number"),
-			col("tid", "TID", "number"),
+			noFilter("pid", "PID", "number"),
+			noFilter("tid", "TID", "number"),
 			col("type", "Type", "text"),
 			col("path", "Path", "text"),
 			hidden("mntns_id", "MntNS", "number"),
@@ -148,9 +163,9 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			col("comm", "Process", "command"),
 			hidden("pid", "PID", "number"),
-			col("tid", "TID", "number"),
-			col("uid", "UID", "number"),
-			col("gid", "GID", "number"),
+			noFilter("tid", "TID", "number"),
+			noFilter("uid", "UID", "number"),
+			noFilter("gid", "GID", "number"),
 			hidden("mntns_id", "MntNS", "number"),
 		},
 	},
@@ -160,7 +175,7 @@ var eventSchemas = map[string]EventSchema{
 			col("src", "Source", "endpoint"),
 			col("dst", "Destination", "endpoint"),
 			col("status", "Status", "text"),
-			col("ino", "Inode", "number"),
+			noFilter("ino", "Inode", "number"),
 			hidden("netns_id", "NetNS", "number"),
 		},
 	},
@@ -175,11 +190,11 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			procCol(),
 			col("rw", "RW", "text"),
-			col("bytes", "Bytes", "bytes"),
-			col("io", "I/O", "number"),
-			col("us", "Latency", "number"),
-			col("major", "Major", "number"),
-			col("minor", "Minor", "number"),
+			noFilter("bytes", "Bytes", "bytes"),
+			noFilter("io", "I/O", "number"),
+			noFilter("us", "Latency", "number"),
+			noFilter("major", "Major", "number"),
+			noFilter("minor", "Minor", "number"),
 		},
 	},
 	"top_file": {
@@ -187,12 +202,12 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			procCol(),
 			col("file", "File", "text"),
-			col("reads", "Reads", "number"),
-			col("writes", "Writes", "number"),
-			col("rbytes_raw", "Read Bytes", "bytes"),
-			col("wbytes_raw", "Write Bytes", "bytes"),
+			noFilter("reads", "Reads", "number"),
+			noFilter("writes", "Writes", "number"),
+			noFilter("rbytes_raw", "Read Bytes", "bytes"),
+			noFilter("wbytes_raw", "Write Bytes", "bytes"),
 			col("t", "Type", "text"),
-			col("inode", "Inode", "number"),
+			noFilter("inode", "Inode", "number"),
 			col("dev", "Device", "text"),
 		},
 	},
@@ -201,16 +216,16 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			col("comm", "Process", "command"),
 			hidden("pid", "PID", "number"),
-			col("uid", "UID", "number"),
+			noFilter("uid", "UID", "number"),
 			col("state", "State", "text"),
-			percentCol("cpuUsage", "CPU"),
-			percentCol("cpuUsageRelative", "Rel CPU"),
-			col("cpuTimeStr", "CPU Time", "text"),
-			col("memoryRSS", "RSS", "bytes"),
-			col("memoryVirtual", "Virtual", "bytes"),
-			col("memoryShared", "Shared", "bytes"),
-			percentCol("memoryRelative", "Memory"),
-			col("threadCount", "Threads", "number"),
+			noFilter("cpuUsage", "CPU", "percent"),
+			noFilter("cpuUsageRelative", "Rel CPU", "percent"),
+			noFilter("cpuTimeStr", "CPU Time", "text"),
+			noFilter("memoryRSS", "RSS", "bytes"),
+			noFilter("memoryVirtual", "Virtual", "bytes"),
+			noFilter("memoryShared", "Shared", "bytes"),
+			noFilter("memoryRelative", "Memory", "percent"),
+			noFilter("threadCount", "Threads", "number"),
 			hidden("priority", "Priority", "number"),
 			hidden("nice", "Nice", "number"),
 		},
@@ -219,26 +234,26 @@ var eventSchemas = map[string]EventSchema{
 		SourceStruct: "topCPUThrottleEntry",
 		Columns: []EventColumn{
 			col("cgroupPath", "Cgroup", "text"),
-			col("nrPeriods", "Periods", "number"),
-			col("nrThrottled", "Throttled", "number"),
+			noFilter("nrPeriods", "Periods", "number"),
+			noFilter("nrThrottled", "Throttled", "number"),
 			col("throttledTime", "Throttled Time", "text"),
-			percentCol("throttleRatio", "Throttled"),
-			col("cpuQuota", "Quota", "number"),
-			col("cpuPeriod", "Period", "number"),
-			col("cpuLimitCores", "Limit", "number"),
-			percentCol("psiSomeAvg10", "PSI 10s"),
-			percentCol("psiSomeAvg60", "PSI 60s"),
+			noFilter("throttleRatio", "Throttled", "percent"),
+			noFilter("cpuQuota", "Quota", "number"),
+			noFilter("cpuPeriod", "Period", "number"),
+			noFilter("cpuLimitCores", "Limit", "number"),
+			noFilter("psiSomeAvg10", "PSI 10s", "percent"),
+			noFilter("psiSomeAvg60", "PSI 60s", "percent"),
 		},
 	},
 	"top_tcp": {
 		SourceStruct: "topTcpEntry",
 		Columns: []EventColumn{
 			col("comm", "Command", "text"),
-			col("pid", "PID", "number"),
+			noFilter("pid", "PID", "number"),
 			col("src", "Source", "endpoint"),
 			col("dst", "Destination", "endpoint"),
-			col("sent", "Sent", "bytes"),
-			col("received", "Received", "bytes"),
+			noFilter("sent", "Sent", "bytes"),
+			noFilter("received", "Received", "bytes"),
 			hidden("tid", "TID", "number"),
 			hidden("mntns_id", "MntNS", "number"),
 		},
@@ -250,7 +265,7 @@ var eventSchemas = map[string]EventSchema{
 			col("addr", "Address", "endpoint"),
 			col("error", "Error", "text"),
 			col("opts", "Options", "text"),
-			col("bound_dev_if", "Bound Device", "number"),
+			noFilter("bound_dev_if", "Bound Device", "number"),
 		},
 	},
 	"trace_capabilities": {
@@ -262,8 +277,8 @@ var eventSchemas = map[string]EventSchema{
 			col("audit", "Audit", "text"),
 			col("syscall", "Syscall", "text"),
 			col("capable", "Capable", "boolean"),
-			col("current_user_ns", "Current UserNS", "number"),
-			col("target_user_ns", "Target UserNS", "number"),
+			noFilter("current_user_ns", "Current UserNS", "number"),
+			noFilter("target_user_ns", "Target UserNS", "number"),
 			col("insetid", "In SetID", "boolean"),
 			hidden("kstack", "Kernel Stack", "json"),
 			hidden("ustack", "User Stack", "json"),
@@ -280,8 +295,8 @@ var eventSchemas = map[string]EventSchema{
 			col("src", "Source", "endpoint"),
 			col("dst", "Destination", "endpoint"),
 			col("nameserver", "Nameserver", "endpoint"),
-			col("latency_ns_raw", "Latency", "number"),
-			col("addresses", "Addresses", "json"),
+			noFilter("latency_ns_raw", "Latency", "number"),
+			noFilter("addresses", "Addresses", "json"),
 			col("tc", "TC", "boolean"),
 			col("rd", "RD", "boolean"),
 			col("ra", "RA", "boolean"),
@@ -302,8 +317,8 @@ var eventSchemas = map[string]EventSchema{
 			col("exepath", "Exe Path", "text"),
 			col("file", "File", "text"),
 			col("cwd", "CWD", "text"),
-			col("loginuid", "Login UID", "number"),
-			col("sessionid", "Session", "number"),
+			noFilter("loginuid", "Login UID", "number"),
+			noFilter("sessionid", "Session", "number"),
 			col("upper_layer", "Upper Layer", "boolean"),
 			col("from_rootfs", "RootFS", "boolean"),
 			hidden("parent_exepath", "Parent Exe Path", "text"),
@@ -324,9 +339,9 @@ var eventSchemas = map[string]EventSchema{
 			procCol(),
 			col("op", "Operation", "text"),
 			col("file", "File", "text"),
-			col("delta_us", "Latency", "number"),
-			col("offset", "Offset", "number"),
-			col("size", "Size", "bytes"),
+			noFilter("delta_us", "Latency", "number"),
+			noFilter("offset", "Offset", "number"),
+			noFilter("size", "Size", "bytes"),
 		},
 	},
 	"trace_init_module": {
@@ -334,8 +349,8 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			procCol(),
 			col("syscall", "Syscall", "text"),
-			col("len", "Length", "bytes"),
-			col("fd", "FD", "number"),
+			noFilter("len", "Length", "bytes"),
+			noFilter("fd", "FD", "number"),
 			col("filepath", "File Path", "text"),
 			col("flags", "Flags", "text"),
 			col("param_values", "Parameters", "text"),
@@ -352,7 +367,7 @@ var eventSchemas = map[string]EventSchema{
 			col("fs", "Filesystem", "text"),
 			col("flags", "Flags", "text"),
 			col("error", "Error", "text"),
-			col("delta_raw", "Latency", "number"),
+			noFilter("delta_raw", "Latency", "number"),
 			hidden("data", "Data", "text"),
 		},
 	},
@@ -361,8 +376,8 @@ var eventSchemas = map[string]EventSchema{
 		Columns: []EventColumn{
 			col("fprocess", "Victim Process", "text"),
 			col("tcomm", "Trigger Command", "text"),
-			col("tpid", "Trigger PID", "number"),
-			col("pages", "Pages", "number"),
+			noFilter("tpid", "Trigger PID", "number"),
+			noFilter("pages", "Pages", "number"),
 			hidden("tmntns_id", "Target MntNS", "number"),
 		},
 	},
@@ -372,7 +387,7 @@ var eventSchemas = map[string]EventSchema{
 			procCol(),
 			col("fname", "File Name", "text"),
 			col("fpath", "File Path", "text"),
-			col("fd", "FD", "number"),
+			noFilter("fd", "FD", "number"),
 			col("flags", "Flags", "text"),
 			col("mode", "Mode", "text"),
 			col("error", "Error", "text"),
@@ -406,8 +421,8 @@ var eventSchemas = map[string]EventSchema{
 			col("src", "Source", "endpoint"),
 			col("dst", "Destination", "endpoint"),
 			col("error", "Error", "text"),
-			col("fd", "FD", "number"),
-			col("accept_fd", "Accept FD", "number"),
+			noFilter("fd", "FD", "number"),
+			noFilter("accept_fd", "Accept FD", "number"),
 			hidden("netns_id", "NetNS", "number"),
 		},
 	},
@@ -425,11 +440,11 @@ var eventSchemas = map[string]EventSchema{
 		SourceStruct: "traceloopEvent",
 		Columns: []EventColumn{
 			col("comm", "Command", "text"),
-			col("pid", "PID", "number"),
+			noFilter("pid", "PID", "number"),
 			col("cpu", "CPU", "number"),
 			col("syscall", "Syscall", "text"),
-			col("parameters", "Parameters", "json"),
-			col("ret", "Return", "number"),
+			noFilter("parameters", "Parameters", "json"),
+			noFilter("ret", "Return", "number"),
 			hidden("mntns_id", "MntNS", "number"),
 		},
 	},
@@ -437,7 +452,7 @@ var eventSchemas = map[string]EventSchema{
 		SourceStruct: "ExpectedTtysnoopEvent",
 		Columns: []EventColumn{
 			procCol(),
-			col("len", "Length", "bytes"),
+			noFilter("len", "Length", "bytes"),
 			col("buf", "Buffer", "text"),
 		},
 	},
