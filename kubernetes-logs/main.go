@@ -9,8 +9,11 @@ package main
 import (
 	"context"
 	"embed"
+	"flag"
+	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
@@ -30,11 +33,33 @@ var (
 )
 
 func main() {
+	serveAddr := flag.String("serve", "", "run as a standalone gRPC server on this address (e.g. :9000) instead of as a go-plugin subprocess")
+	tlsCert := flag.String("serve-tls-cert", "", "TLS certificate file for --serve (enables TLS with --serve-tls-key)")
+	tlsKey := flag.String("serve-tls-key", "", "TLS private key file for --serve")
+	tlsClientCA := flag.String("serve-tls-client-ca", "", "PEM CA bundle to require and verify the host's client certificate (enables mTLS)")
+	flag.Parse()
+
 	sub, err := fs.Sub(uiAssets, "ui")
 	if err != nil {
 		panic(err)
 	}
-	sdk.Serve(&KubernetesLogsPlugin{}, sdk.WithStaticAssets(sub))
+
+	plugin := &KubernetesLogsPlugin{}
+	if *serveAddr != "" {
+		opts := []sdk.Option{sdk.WithStaticAssets(sub)}
+		if *tlsCert != "" || *tlsKey != "" {
+			opts = append(opts, sdk.WithServerTLS(*tlsCert, *tlsKey))
+		}
+		if *tlsClientCA != "" {
+			opts = append(opts, sdk.WithServerClientCA(*tlsClientCA))
+		}
+		if err := sdk.ServeGRPC(plugin, *serveAddr, opts...); err != nil {
+			fmt.Fprintf(os.Stderr, "kubernetes-logs: serve grpc: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	sdk.Serve(plugin, sdk.WithStaticAssets(sub))
 }
 
 type KubernetesLogsPlugin struct {
