@@ -226,13 +226,14 @@ function eventTableColumns(gadget: GadgetSpec | null, session: Session | null): 
 function eventColumn(spec: EventColumnSpec): DataTableColumn<EventTableRow> {
   const key = `data.${spec.path}`;
   const numeric = spec.kind === "number" || spec.kind === "bytes" || spec.kind === "percent";
+  const filterable = spec.filterable !== false;
   return {
     key,
     label: spec.label || spec.path,
     align: numeric ? "right" : "left",
     shrink: spec.kind !== "json" && spec.kind !== "text",
     minWidth: columnMinWidth(spec),
-    filterable: true,
+    filterable,
     sortValue: (_value, row) => sortValue(eventDataValue(row, spec.path), spec.kind),
     filterValue: (_value, row) => displayEventValue(eventDataValue(row, spec.path), spec.kind),
     cellClassName: spec.kind === "json" ? "font-mono text-xs truncate max-w-0" : undefined,

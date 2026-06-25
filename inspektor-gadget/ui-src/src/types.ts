@@ -27,6 +27,12 @@ export type EventColumnSpec = {
   kind?: string;
   description?: string;
   hidden?: boolean;
+  /**
+   * Whether the UI should expose a per-column filter input. Defaults to
+   * true. Set to false on visible columns where a filter has no
+   * practical use (high-cardinality metrics, raw IDs, JSON blobs).
+   */
+  filterable?: boolean;
 };
 
 export type GadgetOption = {
