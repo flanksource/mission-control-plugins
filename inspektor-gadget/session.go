@@ -107,6 +107,11 @@ func newTraceSession(gadget GadgetSpec, target TraceTarget, params map[string]st
 }
 
 func (s *TraceSession) AddEvent(event TraceEvent) {
+	// s.Target is set once in newTraceSession and never mutated, so reading
+	// it without holding s.mu is safe.
+	if !eventMatchesTarget(event, s.Target) {
+		return
+	}
 	s.mu.Lock()
 	s.seq++
 	event.Sequence = s.seq
