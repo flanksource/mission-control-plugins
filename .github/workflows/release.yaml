@@ -7,6 +7,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  packages: write
 
 jobs:
   tag:
@@ -49,6 +50,7 @@ jobs:
           - golang
           - inspektor-gadget
           - kubernetes-logs
+          - opensearch
           - postgres
           - s3
           - sql-server
@@ -120,6 +122,128 @@ jobs:
           path: |
             dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
           if-no-files-found: error
+
+  publish-images:
+    name: Publish ${{ matrix.plugin }} image
+    needs: tag
+    if: needs.tag.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - opensearch
+          - postgres
+          - s3
+          - sql-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.plugin }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            PLUGIN=${{ matrix.plugin }}
+            VERSION=${{ needs.tag.outputs.tag }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mission-control-plugins/${{ matrix.plugin }}:${{ needs.tag.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/mission-control-plugins/${{ matrix.plugin }}:latest
+
+  publish-charts:
+    name: Publish Helm charts
+    needs:
+      - tag
+      - publish-images
+    if: needs.tag.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.0.4
+
+      - name: Package Helm charts
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+          APP_VERSION: ${{ needs.tag.outputs.tag }}
+        run: |
+          mkdir -p dist
+          for chart in */chart; do
+            [ -d "$chart" ] || continue
+            python3 - "$chart/Chart.yaml" "$VERSION" "$APP_VERSION" <<'PY'
+          import sys, pathlib
+          path = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          app_version = sys.argv[3]
+          lines = path.read_text().splitlines()
+          out = []
+          seen_version = seen_app = False
+          for line in lines:
+              if line.startswith('version:'):
+                  out.append(f'version: {version}')
+                  seen_version = True
+              elif line.startswith('appVersion:'):
+                  out.append(f'appVersion: "{app_version}"')
+                  seen_app = True
+              else:
+                  out.append(line)
+          if not seen_version:
+              out.append(f'version: {version}')
+          if not seen_app:
+              out.append(f'appVersion: "{app_version}"')
+          path.write_text('\n'.join(out) + '\n')
+          PY
+            helm package -d dist "$chart"
+          done
+
+      - name: Clone charts repo
+        uses: actions/checkout@v6
+        with:
+          repository: "${{ github.repository_owner }}/charts"
+          path: chart-index
+          token: "${{ secrets.FLANKBOT }}"
+
+      - name: Update chart repo
+        run: |
+          cd chart-index
+          cp ../dist/*.tgz ./
+          helm repo index --merge index.yaml .
+
+      - name: Push chart index
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "Release mission-control plugin charts ${{ needs.tag.outputs.tag }}"
+          branch: gh-pages
+          repository: ./chart-index
 
   publish-assets:
     name: Publish assets for ${{ needs.tag.outputs.tag }}

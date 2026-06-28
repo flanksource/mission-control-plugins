@@ -3,8 +3,8 @@ module github.com/flanksource/mission-control-plugins/golang
 go 1.26.1
 
 require (
-	github.com/flanksource/incident-commander/plugin/api v0.0.1
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.1
+	github.com/flanksource/incident-commander/plugin/api v0.0.3
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.4
 	github.com/google/gops v0.3.29
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936
 	github.com/onsi/ginkgo/v2 v2.28.3

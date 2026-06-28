@@ -294,8 +294,12 @@ github.com/flanksource/gomplate/v3 v3.24.82 h1:22HOZYeNRMX40G8OF3qRAqRoR5Lkf8Vm4
 github.com/flanksource/gomplate/v3 v3.24.82/go.mod h1:NMMZkFsjbLy/8iY8Fip5N86Y0PP6lZeq+kmPwpVVIL0=
 github.com/flanksource/incident-commander/plugin/api v0.0.1 h1:WvO2ea7FwisQvXoyqBOYb2LdJ8LppwrLlMNgV2fyN6E=
 github.com/flanksource/incident-commander/plugin/api v0.0.1/go.mod h1:UzzKclk8Z0b5d2HMaBG4F5pgN5Ua8TjK36sr7Z9kVrU=
+github.com/flanksource/incident-commander/plugin/api v0.0.3 h1:5lLGxoI9cafz8JcBP/p8/GrdUjfpiH0jmcP35Surm0I=
+github.com/flanksource/incident-commander/plugin/api v0.0.3/go.mod h1:UzzKclk8Z0b5d2HMaBG4F5pgN5Ua8TjK36sr7Z9kVrU=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.1 h1:sDPcvsgLFSDuXelSINZMTg4yNf8zdcIBwE7Sox+C2X0=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.1/go.mod h1:1y2WB0bKZ56RcGtPvQhwqy0McJhM2t6qb762S075c7w=
+github.com/flanksource/incident-commander/plugin/sdk v0.0.4 h1:Xk20zVgUb/sJUg2pwm4zMHcO3QbWz8H7NFEafG7ZXfw=
+github.com/flanksource/incident-commander/plugin/sdk v0.0.4/go.mod h1:VXHvh+a5gpeUnYYPgTXCiTrJjPCdSds2hatHKb2IymU=
 github.com/flanksource/is-healthy v1.0.88 h1:ATQuKoNdp8Qfzf41/eMFajmT0qzOmZlZNG5eLK41RFo=
 github.com/flanksource/is-healthy v1.0.88/go.mod h1:faa7yhEtdftTiMxg9Cp2bZ/fGaaB04KSjEm+bkghyY0=
 github.com/flanksource/kubectl-neat v1.0.4 h1:t5/9CqgE84oEtB0KitgJ2+WIeLfD+RhXSxYrqb4X8yI=

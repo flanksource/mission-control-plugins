@@ -12,8 +12,8 @@ require (
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/incident-commander/plugin/api v0.0.1
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.1
+	github.com/flanksource/incident-commander/plugin/api v0.0.3
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.4
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect

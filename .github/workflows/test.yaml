@@ -21,6 +21,7 @@ jobs:
           - golang
           - inspektor-gadget
           - kubernetes-logs
+          - opensearch
           - postgres
           - s3
           - sql-server

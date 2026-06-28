@@ -21,6 +21,7 @@ jobs:
           - golang
           - inspektor-gadget
           - kubernetes-logs
+          - opensearch
           - postgres
           - s3
           - sql-server
@@ -48,7 +49,7 @@ jobs:
             changed_files=$(git diff --name-only HEAD~1..HEAD)
           fi
 
-          if printf '%s\n' "$changed_files" | grep -Eq "^($PLUGIN/|Makefile|Taskfile.yml|\.github/workflows/build\.yaml)"; then
+          if printf '%s\n' "$changed_files" | grep -Eq "^($PLUGIN/|$PLUGIN/chart/|Makefile|Taskfile.yml|\.github/workflows/build\.yaml)"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
