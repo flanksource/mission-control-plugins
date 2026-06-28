@@ -6,8 +6,8 @@ require gopkg.in/yaml.v3 v3.0.1
 
 require (
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/incident-commander/plugin/api v0.0.1
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.1
+	github.com/flanksource/incident-commander/plugin/api v0.0.3
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.4
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect

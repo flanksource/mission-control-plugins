@@ -9,11 +9,13 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -44,11 +46,34 @@ var (
 )
 
 func main() {
+	serveAddr := flag.String("serve", "", "run as a standalone gRPC server on this address (e.g. :9000) instead of as a go-plugin subprocess")
+	tlsCert := flag.String("serve-tls-cert", "", "TLS certificate file for --serve (enables TLS with --serve-tls-key)")
+	tlsKey := flag.String("serve-tls-key", "", "TLS private key file for --serve")
+	tlsClientCA := flag.String("serve-tls-client-ca", "", "PEM CA bundle to require and verify the host's client certificate (enables mTLS)")
+	flag.Parse()
+
 	sub, err := fs.Sub(uiAssets, "ui")
 	if err != nil {
 		panic(err)
 	}
-	sdk.Serve(newPlugin(), sdk.WithStaticAssets(sub))
+
+	plugin := newPlugin()
+	if *serveAddr != "" {
+		opts := []sdk.Option{sdk.WithStaticAssets(sub)}
+		if *tlsCert != "" || *tlsKey != "" {
+			opts = append(opts, sdk.WithServerTLS(*tlsCert, *tlsKey))
+		}
+		if *tlsClientCA != "" {
+			opts = append(opts, sdk.WithServerClientCA(*tlsClientCA))
+		}
+		if err := sdk.ServeGRPC(plugin, *serveAddr, opts...); err != nil {
+			fmt.Fprintf(os.Stderr, "s3: serve grpc: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	sdk.Serve(plugin, sdk.WithStaticAssets(sub))
 }
 
 type S3Plugin struct{}

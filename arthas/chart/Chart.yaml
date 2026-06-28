@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mission-control-plugin-arthas
+description: Mission Control arthas plugin server
+version: 0.1.0
+appVersion: "dev"
+type: application
