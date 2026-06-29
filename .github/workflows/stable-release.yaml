@@ -1,0 +1,129 @@
+name: Create Stable Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: Plugin to release
+        required: true
+        type: choice
+        options:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - opensearch
+          - postgres
+          - s3
+          - sql-server
+      version:
+        description: Stable version without v prefix. Defaults to latest GitHub release version.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_VERSION" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            latest_stable=$(gh release list --repo "$REPO" --exclude-drafts --limit 100 --json tagName,isPrerelease --jq '[.[] | select(.isPrerelease | not)][0].tagName // ""')
+            if [ -z "$latest_stable" ]; then
+              echo "No stable GitHub release found and no version input provided" >&2
+              exit 1
+            fi
+            version="${latest_stable#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "image_owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.plugin }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            PLUGIN=${{ inputs.plugin }}
+            VERSION=${{ steps.version.outputs.tag }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          tags: |
+            ghcr.io/${{ steps.version.outputs.image_owner }}/mission-control-plugins/${{ inputs.plugin }}:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.version.outputs.image_owner }}/mission-control-plugins/${{ inputs.plugin }}:latest
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.0.4
+
+      - name: Package Helm chart
+        env:
+          PLUGIN: ${{ inputs.plugin }}
+          VERSION: ${{ steps.version.outputs.version }}
+          APP_VERSION: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          chart_dir="$PLUGIN/chart"
+          sed -i -E "s/^version:.*/version: ${VERSION}/" "$chart_dir/Chart.yaml"
+          sed -i -E "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" "$chart_dir/Chart.yaml"
+          helm package -d dist "$chart_dir"
+
+      - name: Clone charts repo
+        uses: actions/checkout@v6
+        with:
+          repository: "${{ github.repository_owner }}/charts"
+          path: chart-index
+          token: "${{ secrets.FLANKBOT }}"
+
+      - name: Update chart repo
+        run: |
+          set -euo pipefail
+          cd chart-index
+          cp ../dist/*.tgz ./
+          helm repo index --merge index.yaml .
+
+      - name: Push chart index
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "Release ${{ steps.version.outputs.tag }} of mission-control-plugin-${{ inputs.plugin }}"
+          branch: gh-pages
+          repository: ./chart-index
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          prerelease: false
+          generate_release_notes: true
