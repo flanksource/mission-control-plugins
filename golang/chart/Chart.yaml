@@ -1,6 +1,6 @@
 apiVersion: v2
 name: mission-control-plugin-golang
 description: Mission Control golang plugin server
-version: 0.1.0
-appVersion: "dev"
+version: 1.7.1
+appVersion: "v1.7.1"
 type: application
