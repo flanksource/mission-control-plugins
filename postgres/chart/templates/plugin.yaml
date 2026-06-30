@@ -1,0 +1,16 @@
+# Registers the postgres plugin with Mission Control in remote mode.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: postgres
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - MissionControl::Connection
+      - PostgreSQL::Server
+      - PostgreSQL::Database
+  connections:
+    types:
+      sql: connection://mc/mission-control

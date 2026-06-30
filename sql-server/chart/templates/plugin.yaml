@@ -1,0 +1,28 @@
+# Registers the sql-server plugin with Mission Control in remote mode and grants
+# it read access to mssql connections.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: sql-server
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - MissionControl::Connection
+    labelSelector: mission-control/connection-type=mssql
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-sql-server-plugin-connection-read
+spec:
+  description: allow sql-server plugin to read mission-control database connection.
+  subject:
+    plugin: {{ .Release.Namespace }}/sql-server
+  actions:
+    - read
+  object:
+    connections:
+      - types:
+          - 'sql_server'

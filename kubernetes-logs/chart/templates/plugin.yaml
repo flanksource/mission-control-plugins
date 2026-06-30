@@ -1,0 +1,32 @@
+# Registers the kubernetes-logs plugin with Mission Control in remote mode and
+# grants it read access to connections.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: kubernetes-logs
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - Kubernetes::Namespace
+      - Kubernetes::Pod
+      - Kubernetes::Deployment
+      - Kubernetes::StatefulSet
+      - Kubernetes::DaemonSet
+      - Kubernetes::ReplicaSet
+      - Kubernetes::Job
+      - Kubernetes::CronJob
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-kubernetes-logs-plugin-to-read-connection
+spec:
+  subject:
+    plugin: {{ .Release.Namespace }}/kubernetes-logs
+  actions:
+    - read
+  object:
+    connections:
+      - name: '*' # allows reading any connection
