@@ -102,7 +102,7 @@ func (c *openSearchClient) Check(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("opensearch returned %s: %s", resp.Status, strings.TrimSpace(string(body)))
@@ -133,7 +133,7 @@ func (c *openSearchClient) Search(ctx context.Context, index string, limit int, 
 	if err != nil {
 		return nil, fmt.Errorf("execute search: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read search response: %w", err)

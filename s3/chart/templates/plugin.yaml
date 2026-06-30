@@ -1,0 +1,12 @@
+# Registers the s3 plugin with Mission Control in remote mode.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: s3
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - MissionControl::Connection
+    labelSelector: mission-control/connection-type=s3

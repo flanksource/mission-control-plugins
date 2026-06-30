@@ -1,0 +1,17 @@
+# Registers the arthas plugin with Mission Control in remote mode.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: arthas
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - Kubernetes::Pod
+      - Kubernetes::Deployment
+      - Kubernetes::StatefulSet
+      - Kubernetes::DaemonSet
+      - Kubernetes::ReplicaSet
+      - Kubernetes::Job
+      - Kubernetes::CronJob

@@ -1,0 +1,17 @@
+# Registers the opensearch plugin with Mission Control in remote mode.
+# spec.address is the gRPC host:port Mission Control dials to reach this plugin.
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: opensearch
+spec:
+  address: {{ .Values.plugin.address | quote }}
+  selector:
+    types:
+      - MissionControl::Connection
+      - OpenSearch::Cluster
+      - OpenSearch::Index
+      - Elasticsearch::Cluster
+      - Elasticsearch::Index
+  connections:
+    opensearch: {}

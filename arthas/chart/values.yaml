@@ -16,6 +16,11 @@ service:
   type: ClusterIP
   port: 9000
 
+plugin:
+  # Address Mission Control dials to reach this plugin's gRPC server (host:port).
+  # Leave empty if Mission Control is configured to reach the plugin another way.
+  address: ""
+
 resources: {}
 
 nodeSelector: {}
