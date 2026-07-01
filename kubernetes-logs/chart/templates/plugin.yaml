@@ -29,4 +29,6 @@ spec:
     - read
   object:
     connections:
-      - name: '*' # allows reading any connection
+      - types:
+          - MissionControl::Connection
+        labelSelector: mission-control/connection-type=kubernetes
