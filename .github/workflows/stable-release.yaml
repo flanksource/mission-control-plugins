@@ -17,8 +17,8 @@ on:
           - s3
           - sql-server
       version:
-        description: Stable version without v prefix. Defaults to latest GitHub release version.
-        required: false
+        description: Stable version to release, without the v prefix (e.g. 1.2.3).
+        required: true
         type: string
 
 permissions:
@@ -37,22 +37,11 @@ jobs:
       - name: Determine version
         id: version
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [ -n "$INPUT_VERSION" ]; then
-            version="${INPUT_VERSION#v}"
-          else
-            latest_stable=$(gh release list --repo "$REPO" --exclude-drafts --limit 100 --json tagName,isPrerelease --jq '[.[] | select(.isPrerelease | not)][0].tagName // ""')
-            if [ -z "$latest_stable" ]; then
-              echo "No stable GitHub release found and no version input provided" >&2
-              exit 1
-            fi
-            version="${latest_stable#v}"
-          fi
+          version="${INPUT_VERSION#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "image_owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"

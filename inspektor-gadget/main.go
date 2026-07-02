@@ -54,6 +54,14 @@ func main() {
 
 	plugin := newPlugin()
 	if *serveAddr != "" {
+		if (*tlsCert == "") != (*tlsKey == "") {
+			fmt.Fprintln(os.Stderr, "inspektor-gadget: --serve-tls-cert and --serve-tls-key must be set together")
+			os.Exit(1)
+		}
+		if *tlsClientCA != "" && *tlsCert == "" {
+			fmt.Fprintln(os.Stderr, "inspektor-gadget: --serve-tls-client-ca requires --serve-tls-cert and --serve-tls-key")
+			os.Exit(1)
+		}
 		opts := []sdk.Option{sdk.WithStaticAssets(sub)}
 		if *tlsCert != "" || *tlsKey != "" {
 			opts = append(opts, sdk.WithServerTLS(*tlsCert, *tlsKey))

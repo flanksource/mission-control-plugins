@@ -3,7 +3,7 @@
 apiVersion: mission-control.flanksource.com/v1
 kind: Plugin
 metadata:
-  name: golang
+  name: {{ .Values.plugin.name }}
 spec:
   address: {{ .Values.plugin.address | quote }}
   selector:

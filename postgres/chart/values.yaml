@@ -17,6 +17,8 @@ service:
   port: 9000
 
 plugin:
+  # Name of the Plugin resource registered with Mission Control.
+  name: postgres
   # Address Mission Control dials to reach this plugin's gRPC server (host:port).
   # Leave empty if Mission Control is configured to reach the plugin another way.
   address: ""
@@ -29,3 +31,20 @@ affinity: {}
 
 extraEnv: []
 extraArgs: []
+
+# Extra volumes and mounts, e.g. to mount a TLS certificate Secret and reference
+# it from extraArgs via --serve-tls-cert/--serve-tls-key/--serve-tls-client-ca.
+extraVolumes: []
+extraVolumeMounts: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

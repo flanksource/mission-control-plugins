@@ -15,7 +15,7 @@ RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends ca-certificates curl xz-utils; \
   rm -rf /var/lib/apt/lists/*; \
-  case "${BUILDARCH}" in amd64) node_arch=x64 ;; arm64) node_arch=arm64 ;; *) echo "unsupported build arch: ${BUILDARCH}" >&2; exit 1 ;; esac; \
+  case "${BUILDARCH:-$TARGETARCH}" in amd64) node_arch=x64 ;; arm64) node_arch=arm64 ;; *) echo "unsupported build arch: ${BUILDARCH:-$TARGETARCH}" >&2; exit 1 ;; esac; \
   curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
   tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1; \
   rm /tmp/node.tar.xz; \
