@@ -4,7 +4,7 @@
 apiVersion: mission-control.flanksource.com/v1
 kind: Plugin
 metadata:
-  name: sql-server
+  name: {{ .Values.plugin.name }}
 spec:
   address: {{ .Values.plugin.address | quote }}
   selector:
@@ -19,7 +19,7 @@ metadata:
 spec:
   description: allow sql-server plugin to read mission-control database connection.
   subject:
-    plugin: {{ .Release.Namespace }}/sql-server
+    plugin: {{ .Release.Namespace }}/{{ .Values.plugin.name }}
   actions:
     - read
   object:

@@ -4,7 +4,7 @@
 apiVersion: mission-control.flanksource.com/v1
 kind: Plugin
 metadata:
-  name: kubernetes-logs
+  name: {{ .Values.plugin.name }}
 spec:
   address: {{ .Values.plugin.address | quote }}
   selector:
@@ -24,7 +24,7 @@ metadata:
   name: allow-kubernetes-logs-plugin-to-read-connection
 spec:
   subject:
-    plugin: {{ .Release.Namespace }}/kubernetes-logs
+    plugin: {{ .Release.Namespace }}/{{ .Values.plugin.name }}
   actions:
     - read
   object:
