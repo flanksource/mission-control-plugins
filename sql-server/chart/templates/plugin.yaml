@@ -6,7 +6,11 @@ kind: Plugin
 metadata:
   name: {{ .Values.plugin.name }}
 spec:
+  {{- if eq .Values.mode "remote" }}
+  address: {{ .Values.plugin.address | default (printf "%s.%s:%d" (include "plugin.fullname" .) .Release.Namespace (int .Values.service.port)) | quote }}
+  {{- else if .Values.plugin.address }}
   address: {{ .Values.plugin.address | quote }}
+  {{- end }}
   selector:
     types:
       - MissionControl::Connection
