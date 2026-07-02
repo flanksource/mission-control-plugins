@@ -1,5 +1,12 @@
 replicaCount: 1
 
+# How Mission Control runs this plugin:
+#   remote - deploy the plugin as an in-cluster Deployment + Service that
+#            Mission Control dials over gRPC (default).
+#   local  - Mission Control runs the plugin binary itself; no Deployment
+#            or Service is created.
+mode: remote
+
 image:
   repository: ghcr.io/flanksource/mission-control-plugins/inspektor-gadget
   tag: ""
@@ -20,7 +27,8 @@ plugin:
   # Name of the Plugin resource registered with Mission Control.
   name: inspektor-gadget
   # Address Mission Control dials to reach this plugin's gRPC server (host:port).
-  # Leave empty if Mission Control is configured to reach the plugin another way.
+  # Defaults to the in-cluster Service DNS (<release>.<namespace>:<port>) in
+  # remote mode. Set explicitly to override.
   address: ""
 
 resources: {}
