@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/flanksource/incident-commander/plugin/api v0.0.3
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.4
-	github.com/inspektor-gadget/inspektor-gadget v0.53.0
+	github.com/inspektor-gadget/inspektor-gadget v0.53.1
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	google.golang.org/grpc v1.81.1
