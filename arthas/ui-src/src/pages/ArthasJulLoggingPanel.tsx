@@ -298,7 +298,7 @@ function javaString(s: string): string {
 }
 
 function escapeSingleQuotes(s: string): string {
-  return s.replace(/'/g, "\\'");
+  return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function throwIfOgnlError(results: unknown[]): void {

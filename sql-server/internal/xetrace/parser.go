@@ -130,9 +130,9 @@ func applyField(e *Event, f rawXMLField) {
 	case "username":
 		e.Username = val
 	case "session_id":
-		e.SessionID = int(parseInt64(val))
+		e.SessionID = parseInt(val)
 	case "error_number":
-		e.ErrorNumber = int(parseInt64(val))
+		e.ErrorNumber = parseInt(val)
 	case "message":
 		e.ErrorMessage = val
 	}
@@ -140,6 +140,11 @@ func applyField(e *Event, f rawXMLField) {
 
 func parseInt64(s string) int64 {
 	n, _ := strconv.ParseInt(s, 10, 64)
+	return n
+}
+
+func parseInt(s string) int {
+	n, _ := strconv.Atoi(s)
 	return n
 }
 
