@@ -155,7 +155,7 @@ export function ArthasMBeanTab({ sessionId }: { sessionId: string }) {
     queryKey: ["arthas", sessionId, "mbean", "detail", selected ?? ""],
     enabled: !!selected,
     queryFn: async () => {
-      const cmd = `mbean '${selected!.replace(/'/g, "\\'")}'`;
+      const cmd = `mbean ${quoteArg(selected!)}`;
       const { results } = await execArthas(sessionId, cmd);
       for (const r of results as Array<{ mbeanAttribute?: Record<string, MBeanAttribute[]> }>) {
         if (r?.mbeanAttribute) return r.mbeanAttribute[selected!] ?? [];
@@ -169,7 +169,7 @@ export function ArthasMBeanTab({ sessionId }: { sessionId: string }) {
     enabled: !!selected,
     staleTime: 60_000,
     queryFn: async () => {
-      const cmd = `mbean -m '${selected!.replace(/'/g, "\\'")}'`;
+      const cmd = `mbean -m ${quoteArg(selected!)}`;
       const { results } = await execArthas(sessionId, cmd);
       for (const r of results as Array<{ mbeanMetadata?: Record<string, MBeanMetadata> }>) {
         if (r?.mbeanMetadata) return r.mbeanMetadata[selected!] ?? null;
@@ -608,7 +608,15 @@ function coerceLiteral(raw: string, type: string): string {
     return /^-?\d+(\.\d+)?$/.test(raw.trim()) ? raw.trim() : "0.0";
   }
   // Strings and everything else: quote as Java string literal.
-  return `"${raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return javaString(raw);
+}
+
+function javaString(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function quoteArg(value: string): string {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
 async function writeMBeanAttribute(
@@ -621,11 +629,11 @@ async function writeMBeanAttribute(
   const literal = coerceLiteral(value, attributeType);
   const expr = [
     `(#server=@java.lang.management.ManagementFactory@getPlatformMBeanServer(),`,
-    ` #name=new javax.management.ObjectName("${objectName.replace(/"/g, '\\"')}"),`,
-    ` #attr=new javax.management.Attribute("${attribute}", ${literal}),`,
+    ` #name=new javax.management.ObjectName(${javaString(objectName)}),`,
+    ` #attr=new javax.management.Attribute(${javaString(attribute)}, ${literal}),`,
     ` #server.setAttribute(#name, #attr))`,
   ].join("");
-  const { results } = await execArthas(sessionId, `ognl '${expr.replace(/'/g, "\\'")}'`);
+  const { results } = await execArthas(sessionId, `ognl ${quoteArg(expr)}`);
   throwIfOgnlError(results);
 }
 
@@ -636,15 +644,15 @@ async function invokeMBeanOperation(
   rawParams: string[],
 ): Promise<unknown> {
   const literals = op.signature.map((p, i) => coerceLiteral(rawParams[i] ?? "", p.type));
-  const types = op.signature.map((p) => `"${p.type}"`);
+  const types = op.signature.map((p) => javaString(p.type));
   const expr = [
     `(#server=@java.lang.management.ManagementFactory@getPlatformMBeanServer(),`,
-    ` #name=new javax.management.ObjectName("${objectName.replace(/"/g, '\\"')}"),`,
+    ` #name=new javax.management.ObjectName(${javaString(objectName)}),`,
     ` #args=new Object[]{${literals.join(", ")}},`,
     ` #sig=new String[]{${types.join(", ")}},`,
-    ` #server.invoke(#name, "${op.name}", #args, #sig))`,
+    ` #server.invoke(#name, ${javaString(op.name)}, #args, #sig))`,
   ].join("");
-  const { results } = await execArthas(sessionId, `ognl '${expr.replace(/'/g, "\\'")}'`);
+  const { results } = await execArthas(sessionId, `ognl ${quoteArg(expr)}`);
   throwIfOgnlError(results);
   for (const r of results as Array<{ value?: unknown; type?: string }>) {
     if (r?.type === "ognl" && "value" in r) return r.value;
