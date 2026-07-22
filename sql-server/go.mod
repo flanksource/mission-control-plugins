@@ -3,7 +3,7 @@ module github.com/flanksource/mission-control-plugins/sql-server
 go 1.26.1
 
 require (
-	github.com/flanksource/commons v1.51.4
+	github.com/flanksource/commons v1.53.1
 	github.com/golang-sql/sqlexp v0.1.0
 	github.com/microsoft/go-mssqldb v1.10.0
 	github.com/onsi/ginkgo/v2 v2.28.3

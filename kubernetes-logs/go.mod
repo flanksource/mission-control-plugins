@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/flanksource/commons v1.52.0 // indirect
+	github.com/flanksource/commons v1.53.1 // indirect
 	github.com/flanksource/gomplate/v3 v3.24.82 // indirect
 )
 
