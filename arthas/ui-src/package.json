@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@flanksource/clicky-ui": "^0.2.1",
+    "@flanksource/clicky-ui": "^0.3.0",
     "@flanksource/plugin-ui-sdk": "file:vendor/plugin-ui-sdk",
     "@tanstack/react-query": "^5.80.7",
     "lucide-react": "^0.545.0",

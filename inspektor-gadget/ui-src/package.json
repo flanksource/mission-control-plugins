@@ -7,7 +7,7 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
-    "@flanksource/clicky-ui": "^0.2.1",
+    "@flanksource/clicky-ui": "^0.3.0",
     "@flanksource/plugin-ui-sdk": "file:vendor/plugin-ui-sdk",
     "@flanksource/icons": "^1.0.56",
     "@tanstack/react-query": "^5.90.11",
