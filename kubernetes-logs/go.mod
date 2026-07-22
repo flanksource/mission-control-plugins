@@ -54,7 +54,7 @@ require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/clicky v1.21.40 // indirect
+	github.com/flanksource/clicky v1.21.42 // indirect
 	github.com/flanksource/incident-commander/plugin/api v0.0.4
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.5
 	github.com/flanksource/is-healthy v1.0.88 // indirect
