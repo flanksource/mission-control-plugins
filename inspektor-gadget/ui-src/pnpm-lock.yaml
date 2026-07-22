@@ -17,7 +17,7 @@ importers:
         version: 0.3.14(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.2.14)(ai@6.0.33(zod@4.4.3))(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(recharts@3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1))(tailwindcss@4.2.4)
       '@flanksource/icons':
         specifier: ^1.0.56
-        version: 1.0.58(react@19.2.5)
+        version: 1.0.63(react@19.2.5)
       '@flanksource/plugin-ui-sdk':
         specifier: file:vendor/plugin-ui-sdk
         version: file:vendor/plugin-ui-sdk
@@ -383,13 +383,13 @@ packages:
       streamdown:
         optional: true
 
-  '@flanksource/icons@1.0.58':
-    resolution: {integrity: sha512-LZDNCbusV2p12Cfo6Ix59Q8EGAT+BaZNuwA1BFc0LEeB0fcywnB04RqviaMaZ2F/cigj8BwXIECrA7V58hvIng==}
+  '@flanksource/icons@1.0.60':
+    resolution: {integrity: sha512-PH/0IFJJlyr9bNMUI2abCpiTP6pmYvwXklkw2OsoSIZHjnBvmb9ogZ0Xxd4J7QElT54T6gPZqQEQjTuAz7DISA==}
     peerDependencies:
       react: '*'
 
-  '@flanksource/icons@1.0.60':
-    resolution: {integrity: sha512-PH/0IFJJlyr9bNMUI2abCpiTP6pmYvwXklkw2OsoSIZHjnBvmb9ogZ0Xxd4J7QElT54T6gPZqQEQjTuAz7DISA==}
+  '@flanksource/icons@1.0.63':
+    resolution: {integrity: sha512-QJ3N49jltwT4xJVvajr/6V++LqTEYKGamjtLA+2NNECDG8I/guhgH3l984rIoE4+dkYTrUPwvoUh4SiKLic8FQ==}
     peerDependencies:
       react: '*'
 
@@ -1641,11 +1641,11 @@ snapshots:
       - '@babel/template'
       - '@types/react'
 
-  '@flanksource/icons@1.0.58(react@19.2.5)':
+  '@flanksource/icons@1.0.60(react@19.2.5)':
     dependencies:
       react: 19.2.5
 
-  '@flanksource/icons@1.0.60(react@19.2.5)':
+  '@flanksource/icons@1.0.63(react@19.2.5)':
     dependencies:
       react: 19.2.5
 
