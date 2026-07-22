@@ -12,6 +12,7 @@ require (
 require (
 	github.com/flanksource/commons v1.52.0 // indirect
 	github.com/flanksource/gomplate/v3 v3.24.82 // indirect
+	github.com/yuin/goldmark v1.7.16 // indirect
 )
 
 require (
@@ -31,11 +32,11 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
-	github.com/cert-manager/cert-manager v1.19.4 // indirect
+	github.com/cert-manager/cert-manager v1.20.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
-	github.com/charmbracelet/colorprofile v0.4.2 // indirect
+	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/huh v1.0.0 // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
@@ -53,7 +54,7 @@ require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/clicky v1.21.9 // indirect
+	github.com/flanksource/clicky v1.21.40 // indirect
 	github.com/flanksource/incident-commander/plugin/api v0.0.3
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.4
 	github.com/flanksource/is-healthy v1.0.88 // indirect
@@ -82,7 +83,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-xmlfmt/xmlfmt v1.1.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -136,7 +137,7 @@ require (
 	github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6 // indirect
 	github.com/olekukonko/errors v1.2.0 // indirect
 	github.com/olekukonko/ll v0.1.7 // indirect
-	github.com/olekukonko/tablewriter v1.1.3 // indirect
+	github.com/olekukonko/tablewriter v1.1.4 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -207,7 +208,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	layeh.com/gopher-json v0.0.0-20201124131017-552bb3c4c3bf // indirect
-	sigs.k8s.io/gateway-api v1.5.0 // indirect
+	sigs.k8s.io/gateway-api v1.5.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
