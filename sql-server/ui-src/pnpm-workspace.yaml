@@ -6,4 +6,5 @@ allowBuilds:
 
 overrides:
   shell-quote: 1.8.4
-  dompurify: 3.4.11
+  dompurify: 3.4.12
+  esbuild: 0.28.1
