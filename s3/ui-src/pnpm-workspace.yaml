@@ -3,5 +3,9 @@ packages:
 allowBuilds:
   esbuild: true
 
+overrides:
+  '@babel/core': 7.29.6
+  esbuild: 0.28.1
+
 onlyBuiltDependencies:
   - esbuild
