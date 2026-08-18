@@ -3,7 +3,7 @@ module github.com/flanksource/mission-control-plugins/sql-server
 go 1.26.1
 
 require (
-	github.com/flanksource/commons v1.53.1
+	github.com/flanksource/commons v1.56.0
 	github.com/golang-sql/sqlexp v0.1.0
 	github.com/microsoft/go-mssqldb v1.10.0
 	github.com/onsi/ginkgo/v2 v2.28.3
@@ -21,8 +21,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/incident-commander/plugin/api v0.0.4
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.5
+	github.com/flanksource/incident-commander/plugin/api v0.0.5
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.6
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect

@@ -19,10 +19,14 @@ github.com/flanksource/incident-commander/plugin/api v0.0.3 h1:5lLGxoI9cafz8JcBP
 github.com/flanksource/incident-commander/plugin/api v0.0.3/go.mod h1:UzzKclk8Z0b5d2HMaBG4F5pgN5Ua8TjK36sr7Z9kVrU=
 github.com/flanksource/incident-commander/plugin/api v0.0.4 h1:FMNFkZVxUiBl7nYuuHcJSAnnmkNVLESTBLDiCdY8/mQ=
 github.com/flanksource/incident-commander/plugin/api v0.0.4/go.mod h1:I36AhJu32nrDmh6UBDyPoemxH+Q2uZTglVgbrIMoQN8=
+github.com/flanksource/incident-commander/plugin/api v0.0.5 h1:kcARZbDVsceY5A6yqUH3jtlWr2dKHsF/mpae4/d9Avk=
+github.com/flanksource/incident-commander/plugin/api v0.0.5/go.mod h1:S+qqP7G4DCxBMURPEBTYRGCX28391UN1gno1NuGpOfQ=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.4 h1:Xk20zVgUb/sJUg2pwm4zMHcO3QbWz8H7NFEafG7ZXfw=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.4/go.mod h1:VXHvh+a5gpeUnYYPgTXCiTrJjPCdSds2hatHKb2IymU=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.5 h1:uMas06M/u8SI52FNpWpLxJLWvO3OvjJocSHDwPYU1JE=
 github.com/flanksource/incident-commander/plugin/sdk v0.0.5/go.mod h1:njTl3c5/cGCCEuT2aIi5t+7T/624SgnZpgtdnUmIqSc=
+github.com/flanksource/incident-commander/plugin/sdk v0.0.6 h1:izZorFE8D0j1/ZUhQXqw7aD6bLuOXDMDvJi/QbjBWjw=
+github.com/flanksource/incident-commander/plugin/sdk v0.0.6/go.mod h1:cLG706IBPC9sSbDZvxEqx+titL9R/qo1uo+io+c++D8=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.10.1 h1:b0/UzAf9yR5rhf3RPm9gf3ehBPpf0oZKIjtpKrx59Ho=
