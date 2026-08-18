@@ -3,16 +3,16 @@ module github.com/flanksource/mission-control-plugins/kubernetes-logs
 go 1.26.1
 
 require (
-	github.com/flanksource/duty v1.0.1352
+	github.com/flanksource/duty v1.0.1366
 	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
+	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.1
 )
 
 require (
-	github.com/flanksource/commons v1.53.1 // indirect
-	github.com/flanksource/gomplate/v3 v3.24.84 // indirect
-	github.com/yuin/goldmark v1.7.16 // indirect
+	github.com/flanksource/commons v1.56.0 // indirect
+	github.com/flanksource/gomplate/v3 v3.24.89 // indirect
+	github.com/yuin/goldmark v1.7.17 // indirect
 )
 
 require (
@@ -54,10 +54,10 @@ require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/flanksource/clicky v1.21.48 // indirect
-	github.com/flanksource/incident-commander/plugin/api v0.0.4
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.5
-	github.com/flanksource/is-healthy v1.0.88 // indirect
+	github.com/flanksource/clicky v1.21.55 // indirect
+	github.com/flanksource/incident-commander/plugin/api v0.0.5
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.6
+	github.com/flanksource/is-healthy v1.0.90 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
@@ -87,7 +87,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/cel-go v0.28.1 // indirect
+	github.com/google/cel-go v0.31.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gosimple/slug v1.15.0 // indirect
@@ -194,7 +194,7 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260608224507-4308a22a1bab // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
