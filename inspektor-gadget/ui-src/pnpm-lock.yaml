@@ -16,10 +16,10 @@ importers:
     dependencies:
       '@flanksource/clicky-ui':
         specifier: ^0.3.0
-        version: 0.3.15(@babel/core@7.29.6)(@babel/template@7.28.6)(@types/react@19.2.14)(ai@6.0.33(zod@4.4.3))(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(recharts@3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1))(tailwindcss@4.2.4)
+        version: 0.3.34(@babel/core@7.29.6)(@babel/template@7.28.6)(@types/react@19.2.14)(ai@6.0.33(zod@4.4.3))(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(recharts@3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1))(tailwindcss@4.2.4)
       '@flanksource/icons':
         specifier: ^1.0.56
-        version: 1.0.63(react@19.2.5)
+        version: 1.0.65(react@19.2.5)
       '@flanksource/plugin-ui-sdk':
         specifier: file:vendor/plugin-ui-sdk
         version: file:vendor/plugin-ui-sdk
@@ -353,8 +353,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@flanksource/clicky-ui@0.3.15':
-    resolution: {integrity: sha512-fGlvREEaizzSkFwHVqppnlF/s/upFzooR2WHp2KsdK/b8zgtkbB/3FTQuREhsuMika2jw2PtJty1l99jI1D1Cw==}
+  '@flanksource/clicky-ui@0.3.34':
+    resolution: {integrity: sha512-5o1e8K2ZWbS9bWjsE0sd/rm0UkxZMbQ4/d0PRNQMHwGh3a55XG3oAkBhlBYxv2uUfhBj1zR1F6f195rDnKLvRg==}
     peerDependencies:
       '@ai-sdk/react': ^3.0.0
       '@mdxeditor/editor': ^4.0.4
@@ -370,7 +370,7 @@ packages:
       recharts: ^3.0.0
       shiki: ^1.24.0
       streamdown: ^2.5.0
-      tailwindcss: ^3.4.0 || ^4.0.0
+      tailwindcss: ^4.0.0
     peerDependenciesMeta:
       '@ai-sdk/react':
         optional: true
@@ -393,13 +393,13 @@ packages:
       streamdown:
         optional: true
 
-  '@flanksource/icons@1.0.60':
-    resolution: {integrity: sha512-PH/0IFJJlyr9bNMUI2abCpiTP6pmYvwXklkw2OsoSIZHjnBvmb9ogZ0Xxd4J7QElT54T6gPZqQEQjTuAz7DISA==}
+  '@flanksource/icons@1.0.63':
+    resolution: {integrity: sha512-QJ3N49jltwT4xJVvajr/6V++LqTEYKGamjtLA+2NNECDG8I/guhgH3l984rIoE4+dkYTrUPwvoUh4SiKLic8FQ==}
     peerDependencies:
       react: '*'
 
-  '@flanksource/icons@1.0.63':
-    resolution: {integrity: sha512-QJ3N49jltwT4xJVvajr/6V++LqTEYKGamjtLA+2NNECDG8I/guhgH3l984rIoE4+dkYTrUPwvoUh4SiKLic8FQ==}
+  '@flanksource/icons@1.0.65':
+    resolution: {integrity: sha512-Z8EW8V0c4YJWs529wS3RNrN/1Q65eYgxqrkln3djUzBLg3acfHLYUGmXoSBQnPXQSGO4No+2wr9uLVsnE53wlA==}
     peerDependencies:
       react: '*'
 
@@ -860,6 +860,9 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
+  country-flag-icons@1.6.20:
+    resolution: {integrity: sha512-py8JiEKzjhYw6HPJ0L7SxLgCYim36UPRTZX43/kqGueUCZLSvnrqAiwW8HtQibur7mdkFQUkjOgdK+o/9FBtaw==}
+
   crelt@1.0.7:
     resolution: {integrity: sha512-aK6BbWfhf4U/wCcLHKPJl/xa6VkVstRaPywWtMKGwuOLc/wZTyQYuoxgvZnNsBvv7Kg3YTBQYYBCggcviQczuA==}
 
@@ -1238,8 +1241,8 @@ packages:
   tabbable@6.5.0:
     resolution: {integrity: sha512-wieBHXygIm7OyQOu5hQlkk62/WyCFYGlWg7L6/ZCUZwx0o398Zkn4pVmMyfYhfMG8kGrj/Krt8eIk6UKC6VzwA==}
 
-  tailwind-merge@2.6.1:
-    resolution: {integrity: sha512-Oo6tHdpZsGpkKG88HJ8RR1rg/RdnEkQEfMoEk2x1XRI3F1AxeU+ijRXpiVUF4UbLfcxxRGw6TbUINKYdWVsQTQ==}
+  tailwind-merge@3.6.0:
+    resolution: {integrity: sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w==}
 
   tailwindcss@4.2.4:
     resolution: {integrity: sha512-HhKppgO81FQof5m6TEnuBWCZGgfRAWbaeOaGT00KOy/Pf/j6oUihdvBpA7ltCeAvZpFhW3j0PTclkxsd4IXYDA==}
@@ -1372,7 +1375,7 @@ snapshots:
 
   '@babel/code-frame@7.29.0':
     dependencies:
-      '@babel/helper-validator-identifier': 7.28.5
+      '@babel/helper-validator-identifier': 7.29.7
       js-tokens: 4.0.0
       picocolors: 1.1.1
 
@@ -1385,10 +1388,10 @@ snapshots:
       '@babel/helper-compilation-targets': 7.28.6
       '@babel/helper-module-transforms': 7.28.6(@babel/core@7.29.6)
       '@babel/helpers': 7.29.2
-      '@babel/parser': 7.29.3
+      '@babel/parser': 7.29.7
       '@babel/template': 7.28.6
       '@babel/traverse': 7.29.0
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
       '@jridgewell/remapping': 2.3.5
       convert-source-map: 2.0.0
       debug: 4.4.3
@@ -1419,7 +1422,7 @@ snapshots:
   '@babel/helper-module-imports@7.28.6':
     dependencies:
       '@babel/traverse': 7.29.0
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
     transitivePeerDependencies:
       - supports-color
 
@@ -1427,7 +1430,7 @@ snapshots:
     dependencies:
       '@babel/core': 7.29.6
       '@babel/helper-module-imports': 7.28.6
-      '@babel/helper-validator-identifier': 7.28.5
+      '@babel/helper-validator-identifier': 7.29.7
       '@babel/traverse': 7.29.0
     transitivePeerDependencies:
       - supports-color
@@ -1447,7 +1450,7 @@ snapshots:
   '@babel/helpers@7.29.2':
     dependencies:
       '@babel/template': 7.28.6
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
 
   '@babel/parser@7.29.3':
     dependencies:
@@ -1470,17 +1473,17 @@ snapshots:
   '@babel/template@7.28.6':
     dependencies:
       '@babel/code-frame': 7.29.0
-      '@babel/parser': 7.29.3
-      '@babel/types': 7.29.0
+      '@babel/parser': 7.29.7
+      '@babel/types': 7.29.7
 
   '@babel/traverse@7.29.0':
     dependencies:
       '@babel/code-frame': 7.29.0
       '@babel/generator': 7.29.7
       '@babel/helper-globals': 7.28.0
-      '@babel/parser': 7.29.3
+      '@babel/parser': 7.29.7
       '@babel/template': 7.28.6
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
@@ -1621,7 +1624,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@flanksource/clicky-ui@0.3.15(@babel/core@7.29.6)(@babel/template@7.28.6)(@types/react@19.2.14)(ai@6.0.33(zod@4.4.3))(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(recharts@3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1))(tailwindcss@4.2.4)':
+  '@flanksource/clicky-ui@0.3.34(@babel/core@7.29.6)(@babel/template@7.28.6)(@types/react@19.2.14)(ai@6.0.33(zod@4.4.3))(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(recharts@3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1))(tailwindcss@4.2.4)':
     dependencies:
       '@codemirror/autocomplete': 6.20.3
       '@codemirror/commands': 6.10.4
@@ -1629,7 +1632,7 @@ snapshots:
       '@codemirror/lang-sql': 6.10.0
       '@codemirror/state': 6.7.1
       '@codemirror/view': 6.43.6
-      '@flanksource/icons': 1.0.60(react@19.2.5)
+      '@flanksource/icons': 1.0.63(react@19.2.5)
       '@floating-ui/react': 0.27.20(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@monaco-editor/react': 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@radix-ui/react-compose-refs': 1.1.3(@types/react@19.2.14)(react@19.2.5)
@@ -1637,6 +1640,7 @@ snapshots:
       '@tanstack/react-query': 5.101.4(react@19.2.5)
       class-variance-authority: 0.7.1
       clsx: 2.1.1
+      country-flag-icons: 1.6.20
       dompurify: 3.4.12
       jotai: 2.20.2(@babel/core@7.29.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.5)
       monaco-editor: 0.55.1
@@ -1644,7 +1648,7 @@ snapshots:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
       recharts: 3.10.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@19.2.7)(react@19.2.5)(redux@5.0.1)
-      tailwind-merge: 2.6.1
+      tailwind-merge: 3.6.0
       tailwindcss: 4.2.4
       yaml: 2.9.0
     optionalDependencies:
@@ -1654,11 +1658,11 @@ snapshots:
       - '@babel/template'
       - '@types/react'
 
-  '@flanksource/icons@1.0.60(react@19.2.5)':
+  '@flanksource/icons@1.0.63(react@19.2.5)':
     dependencies:
       react: 19.2.5
 
-  '@flanksource/icons@1.0.63(react@19.2.5)':
+  '@flanksource/icons@1.0.65(react@19.2.5)':
     dependencies:
       react: 19.2.5
 
@@ -2039,6 +2043,8 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
+  country-flag-icons@1.6.20: {}
+
   crelt@1.0.7: {}
 
   csstype@3.2.3: {}
@@ -2384,7 +2390,7 @@ snapshots:
 
   tabbable@6.5.0: {}
 
-  tailwind-merge@2.6.1: {}
+  tailwind-merge@3.6.0: {}
 
   tailwindcss@4.2.4: {}
 
