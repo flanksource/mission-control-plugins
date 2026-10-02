@@ -8,8 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
-	github.com/flanksource/incident-commander/plugin/api v0.0.5
-	github.com/flanksource/incident-commander/plugin/sdk v0.0.6
+	github.com/flanksource/incident-commander/plugin/api v0.0.6
+	github.com/flanksource/incident-commander/plugin/sdk v0.0.7
 )
 
 require (
