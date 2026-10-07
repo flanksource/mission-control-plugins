@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/incident-commander/plugin/sdk"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"golang.org/x/sync/errgroup"
 )
 
 type invalidError struct{ message string }
@@ -92,25 +93,29 @@ func (*KubernetesMetricsPlugin) current(ctx context.Context, req sdk.InvokeCtx) 
 	defer closeClient()
 	at := time.Now().UTC()
 	out := currentResult{At: at}
-	pods, err := instant(ctx, api, q.pods, at)
-	if err != nil {
-		return nil, err
-	}
-	if pods != nil {
-		out.Pods = int(*pods)
-	}
+	var pods *float64
+	// The queries are independent; run them concurrently so a slow Prometheus
+	// costs one round trip instead of seven.
+	g, gctx := errgroup.WithContext(ctx)
 	for _, query := range []struct {
 		expr  string
 		value **float64
 	}{
+		{q.pods, &pods},
 		{q.cpuUsage, &out.CPU.Usage}, {q.memoryUsage, &out.Memory.Usage},
 		{q.cpuRequest, &out.CPU.Request}, {q.memoryRequest, &out.Memory.Request},
 		{q.cpuLimit, &out.CPU.Limit}, {q.memoryLimit, &out.Memory.Limit},
 	} {
-		*query.value, err = instant(ctx, api, query.expr, at)
-		if err != nil {
-			return nil, err
-		}
+		g.Go(func() (err error) {
+			*query.value, err = instant(gctx, api, query.expr, at)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	if pods != nil {
+		out.Pods = int(*pods)
 	}
 	// An empty owner join alone cannot distinguish missing KSM from zero pods.
 	if out.Pods == 0 && q.zeroReplicas != "" && (out.CPU.Usage == nil || out.Memory.Usage == nil) {
@@ -147,6 +152,7 @@ func (*KubernetesMetricsPlugin) history(ctx context.Context, req sdk.InvokeCtx) 
 	end := time.Now().UTC()
 	r := v1.Range{Start: end.Add(-duration), End: end, Step: step}
 	out := historyResult{Range: params.Range, Step: params.Step}
+	g, gctx := errgroup.WithContext(ctx)
 	for _, query := range []struct {
 		expr   string
 		points *[]point
@@ -154,10 +160,13 @@ func (*KubernetesMetricsPlugin) history(ctx context.Context, req sdk.InvokeCtx) 
 		{q.cpuUsage, &out.CPU.Usage}, {q.cpuLimit, &out.CPU.Limit},
 		{q.memoryUsage, &out.Memory.Usage}, {q.memoryLimit, &out.Memory.Limit},
 	} {
-		*query.points, err = series(ctx, api, query.expr, r)
-		if err != nil {
-			return nil, err
-		}
+		g.Go(func() (err error) {
+			*query.points, err = series(gctx, api, query.expr, r)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

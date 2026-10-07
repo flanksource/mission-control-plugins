@@ -7,6 +7,7 @@ require (
 	github.com/flanksource/incident-commander/plugin/sdk v0.0.6
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/common v0.68.1
+	golang.org/x/sync v0.21.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 )
 
