@@ -24,9 +24,10 @@ client credentials use the resolved connection. Standard HTTPS verification
 is enabled; resolved `ca`, `cert`, `key`, and `insecureTLS` properties are honored
 when supplied by the host.
 
-The bundled Permission allows the plugin to read connections. Tighten its
-selector to the intended Prometheus connection in production. This permission
-does **not** grant users permission to invoke the plugin.
+The bundled Permission allows the plugin to read Prometheus connections only
+(`mission-control/connection-type=prometheus`), matching the Helm chart. Narrow
+it further to the intended connection in production. This permission does
+**not** grant users permission to invoke the plugin.
 
 ## Build and install
 

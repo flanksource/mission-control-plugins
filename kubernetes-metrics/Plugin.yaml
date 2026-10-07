@@ -27,4 +27,6 @@ spec:
     - read
   object:
     connections:
-      - name: '*'
+      - types:
+          - MissionControl::Connection
+        labelSelector: mission-control/connection-type=prometheus
