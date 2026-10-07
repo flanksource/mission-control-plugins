@@ -345,6 +345,8 @@ tasks:
     desc: Build a plugin UI bundle into <plugin>/ui (PLUGIN=<name>)
     requires:
       vars: [PLUGIN]
+    # Plugins without a UI (e.g. kubernetes-metrics) skip the build and its deps.
+    if: '[ -f "{{.ROOT_DIR}}/{{.PLUGIN}}/ui-src/package.json" ]'
     dir: "{{.PLUGIN}}/ui-src"
     deps:
       - task: plugin:ui:install
@@ -374,12 +376,16 @@ tasks:
     desc: Build optional UI assets and run plugin generators (PLUGIN=<name>)
     requires:
       vars: [PLUGIN]
+    deps:
+      - task: plugin:ui:build
+        vars: { PLUGIN: "{{.PLUGIN}}" }
     cmds:
-      - |
-        if [ -f "{{.PLUGIN}}/ui-src/package.json" ]; then
-          task plugin:ui:build PLUGIN={{.PLUGIN}} VERSION="{{.VERSION}}" BUILD_DATE="{{.BUILD_DATE}}"
-        fi
       - cd {{.PLUGIN}} && go generate ./...
+    sources:
+      - "{{.PLUGIN}}/ui/**"
+      - "{{.PLUGIN}}/internal/gen-checksum/main.go"
+    generates:
+      - "{{.PLUGIN}}/ui_checksum.go"
 
   plugin:build:
     desc: Build and install a plugin binary into $MISSION_CONTROL_PLUGIN_PATH (PLUGIN=<name>)
