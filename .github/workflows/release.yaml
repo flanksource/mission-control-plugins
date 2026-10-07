@@ -39,6 +39,11 @@ jobs:
               - Makefile
               - Taskfile.yml
               - .github/workflows/release.yaml
+            kubernetes-metrics:
+              - kubernetes-metrics/**
+              - Makefile
+              - Taskfile.yml
+              - .github/workflows/release.yaml
             opensearch:
               - opensearch/**
               - Makefile

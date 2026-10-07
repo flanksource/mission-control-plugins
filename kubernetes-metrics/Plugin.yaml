@@ -1,0 +1,30 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: kubernetes-metrics
+  namespace: default
+spec:
+  source: kubernetes-metrics
+  version: '0.1.0'
+  selector:
+    types:
+      - Kubernetes::Pod
+      - Kubernetes::Deployment
+      - Kubernetes::StatefulSet
+  connections:
+    types:
+      prometheus: connection://default/prometheus
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-kubernetes-metrics-plugin-to-read-connection
+  namespace: default
+spec:
+  subject:
+    plugin: default/kubernetes-metrics
+  actions:
+    - read
+  object:
+    connections:
+      - name: '*'

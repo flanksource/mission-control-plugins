@@ -1,0 +1,43 @@
+replicaCount: 1
+mode: remote
+
+image:
+  repository: ghcr.io/flanksource/mission-control-plugins/kubernetes-metrics
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 9000
+
+plugin:
+  name: kubernetes-metrics
+  address: ""
+  prometheusConnection: connection://default/prometheus
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+extraEnv: []
+extraArgs: []
+extraVolumes: []
+extraVolumeMounts: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

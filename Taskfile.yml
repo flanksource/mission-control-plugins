@@ -293,6 +293,8 @@ tasks:
       - task: plugin:tidy
         vars: { PLUGIN: kubernetes-logs }
       - task: plugin:tidy
+        vars: { PLUGIN: kubernetes-metrics }
+      - task: plugin:tidy
         vars: { PLUGIN: opensearch }
       - task: plugin:tidy
         vars: { PLUGIN: postgres }
@@ -313,6 +315,8 @@ tasks:
         vars: { PLUGIN: inspektor-gadget }
       - task: plugin:lint
         vars: { PLUGIN: kubernetes-logs }
+      - task: plugin:lint
+        vars: { PLUGIN: kubernetes-metrics }
       - task: plugin:lint
         vars: { PLUGIN: postgres }
       - task: plugin:lint
@@ -367,19 +371,15 @@ tasks:
       - ../ui/index.html
 
   plugin:generate:
-    desc: Regenerate ui_checksum.go for a plugin (PLUGIN=<name>)
+    desc: Build optional UI assets and run plugin generators (PLUGIN=<name>)
     requires:
       vars: [PLUGIN]
-    deps:
-      - task: plugin:ui:build
-        vars: { PLUGIN: "{{.PLUGIN}}" }
     cmds:
+      - |
+        if [ -f "{{.PLUGIN}}/ui-src/package.json" ]; then
+          task plugin:ui:build PLUGIN={{.PLUGIN}} VERSION="{{.VERSION}}" BUILD_DATE="{{.BUILD_DATE}}"
+        fi
       - cd {{.PLUGIN}} && go generate ./...
-    sources:
-      - "{{.PLUGIN}}/ui/**"
-      - "{{.PLUGIN}}/internal/gen-checksum/main.go"
-    generates:
-      - "{{.PLUGIN}}/ui_checksum.go"
 
   plugin:build:
     desc: Build and install a plugin binary into $MISSION_CONTROL_PLUGIN_PATH (PLUGIN=<name>)
@@ -489,6 +489,13 @@ tasks:
       - task: plugin:lint
         vars: { PLUGIN: kubernetes-logs }
 
+  lint:plugin:kubernetes-metrics:
+    desc: Lint the kubernetes-metrics plugin
+    deps: [golangci-lint]
+    cmds:
+      - task: plugin:lint
+        vars: { PLUGIN: kubernetes-metrics }
+
   lint:plugin:postgres:
     desc: Lint the postgres plugin
     deps: [golangci-lint]
@@ -533,6 +540,12 @@ tasks:
     cmds:
       - task: plugin:build
         vars: { PLUGIN: kubernetes-logs, DEBUG: '{{.DEBUG | default "false"}}' }
+
+  build:plugin:kubernetes-metrics:
+    desc: Build and install the kubernetes-metrics plugin
+    cmds:
+      - task: plugin:build
+        vars: { PLUGIN: kubernetes-metrics, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:postgres:
     desc: Build and install the postgres plugin

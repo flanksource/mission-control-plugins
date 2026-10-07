@@ -1,0 +1,34 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: Plugin
+metadata:
+  name: {{ .Values.plugin.name }}
+spec:
+  {{- if eq .Values.mode "remote" }}
+  address: {{ .Values.plugin.address | default (printf "%s.%s:%d" (include "plugin.fullname" .) .Release.Namespace (int .Values.service.port)) | quote }}
+  {{- else }}
+  source: kubernetes-metrics
+  version: {{ .Chart.AppVersion | trimPrefix "v" | quote }}
+  {{- end }}
+  selector:
+    types:
+      - Kubernetes::Pod
+      - Kubernetes::Deployment
+      - Kubernetes::StatefulSet
+  connections:
+    types:
+      prometheus: {{ .Values.plugin.prometheusConnection | quote }}
+---
+apiVersion: mission-control.flanksource.com/v1
+kind: Permission
+metadata:
+  name: allow-{{ .Values.plugin.name }}-plugin-to-read-connection
+spec:
+  subject:
+    plugin: {{ .Release.Namespace }}/{{ .Values.plugin.name }}
+  actions:
+    - read
+  object:
+    connections:
+      - types:
+          - MissionControl::Connection
+        labelSelector: mission-control/connection-type=prometheus
