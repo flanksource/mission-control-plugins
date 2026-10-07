@@ -25,13 +25,16 @@ is enabled; resolved `ca`, `cert`, `key`, and `insecureTLS` properties are honor
 when supplied by the host.
 
 The bundled Permission allows the plugin to read Prometheus connections only
-(`mission-control/connection-type=prometheus`), matching the Helm chart. Narrow
-it further to the intended connection in production. This permission does
-**not** grant users permission to invoke the plugin.
+(`types: [prometheus]`), matching the Helm chart. Connections expose their
+connection type to permission selectors, not catalog types or labels. Narrow
+the selector further by connection name and namespace in production. This
+permission does **not** grant users permission to invoke the plugin.
 
 ## Build and install
 
-Go 1.26.1 and Task are required. From the repository root:
+Go 1.26.1 and Task 3.47.0 or later are required. The Dockerfile pins Task 3.47.0
+so the optional-UI `if:` guard also works in image builds. From the repository
+root:
 
 ```sh
 make dev PLUGIN=kubernetes-metrics
@@ -145,8 +148,11 @@ Invalid range/step or an unresolved/unsupported workload returns HTTP 400 with
 `error_code: EINVALID`. SDK v0.0.6 hard-codes RPC handler errors to
 `HANDLER_ERROR`; validation messages still begin with `EINVALID:` over RPC.
 A config item the host reports as not found or forbidden returns HTTP 404
-(`ENOTFOUND`) or 403 (`EFORBIDDEN`). Other plugin HTTP failures return 502 with
-the underlying error message.
+(`ENOTFOUND`) or 403 (`EFORBIDDEN`). Current hosts also report missing and
+RLS-hidden items as `Internal` or `Unknown` with the exact message
+`config item <config_id>: record not found`; the plugin maps only that lookup
+message to 404, without distinguishing absence from denied visibility.
+Other plugin HTTP failures return 502 with the underlying error message.
 
 ## Caller authorization
 

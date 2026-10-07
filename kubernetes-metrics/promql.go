@@ -43,11 +43,14 @@ func resolveQueries(ctx context.Context, host sdk.HostClient, id string) (worklo
 	}
 	item, err := host.GetConfigItem(ctx, id)
 	if err != nil {
+		code, message := status.Code(err), status.Convert(err).Message()
 		err = fmt.Errorf("get config item %s: %w", id, err)
-		switch status.Code(err) {
-		case codes.NotFound:
+		switch {
+		// Older hosts send this exact GORM lookup error as Internal or Unknown,
+		// including RLS-hidden items. Do not classify other host failures as 404.
+		case code == codes.NotFound || ((code == codes.Internal || code == codes.Unknown) && message == fmt.Sprintf("config item %s: record not found", id)):
 			return workloadQueries{}, &lookupError{status: http.StatusNotFound, code: "ENOTFOUND", err: err}
-		case codes.PermissionDenied:
+		case code == codes.PermissionDenied:
 			return workloadQueries{}, &lookupError{status: http.StatusForbidden, code: "EFORBIDDEN", err: err}
 		}
 		return workloadQueries{}, err

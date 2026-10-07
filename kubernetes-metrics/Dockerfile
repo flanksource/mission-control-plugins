@@ -6,7 +6,7 @@ ARG VERSION=dev
 ARG BUILD_DATE
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
-ARG TASK_VERSION=v3.45.4
+ARG TASK_VERSION=v3.47.0
 
 WORKDIR /src
 RUN go install github.com/go-task/task/v3/cmd/task@${TASK_VERSION}
