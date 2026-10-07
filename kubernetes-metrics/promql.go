@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
 	pluginpb "github.com/flanksource/incident-commander/plugin/api"
 	"github.com/flanksource/incident-commander/plugin/sdk"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type workloadQueries struct {
@@ -40,7 +43,14 @@ func resolveQueries(ctx context.Context, host sdk.HostClient, id string) (worklo
 	}
 	item, err := host.GetConfigItem(ctx, id)
 	if err != nil {
-		return workloadQueries{}, fmt.Errorf("get config item %s: %w", id, err)
+		err = fmt.Errorf("get config item %s: %w", id, err)
+		switch status.Code(err) {
+		case codes.NotFound:
+			return workloadQueries{}, &lookupError{status: http.StatusNotFound, code: "ENOTFOUND", err: err}
+		case codes.PermissionDenied:
+			return workloadQueries{}, &lookupError{status: http.StatusForbidden, code: "EFORBIDDEN", err: err}
+		}
+		return workloadQueries{}, err
 	}
 	kind, ns, name := extractKubeRef(item)
 	kind = strings.TrimPrefix(strings.ToLower(kind), "kubernetes::")

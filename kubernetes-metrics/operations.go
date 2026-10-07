@@ -21,6 +21,17 @@ func invalid(format string, args ...any) error {
 	return &invalidError{message: fmt.Sprintf(format, args...)}
 }
 
+// lookupError carries the HTTP status for a config item the host could not
+// find or would not return, so callers do not retry it as an upstream failure.
+type lookupError struct {
+	status int
+	code   string
+	err    error
+}
+
+func (e *lookupError) Error() string { return e.code + ": " + e.err.Error() }
+func (e *lookupError) Unwrap() error { return e.err }
+
 type resourceCurrent struct {
 	Usage   *float64 `json:"usage"`
 	Request *float64 `json:"request"`

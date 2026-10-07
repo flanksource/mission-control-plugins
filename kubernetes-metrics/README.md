@@ -144,7 +144,9 @@ instead of returning partial or fake results.
 Invalid range/step or an unresolved/unsupported workload returns HTTP 400 with
 `error_code: EINVALID`. SDK v0.0.6 hard-codes RPC handler errors to
 `HANDLER_ERROR`; validation messages still begin with `EINVALID:` over RPC.
-Other plugin HTTP failures return 502 with the underlying error message.
+A config item the host reports as not found or forbidden returns HTTP 404
+(`ENOTFOUND`) or 403 (`EFORBIDDEN`). Other plugin HTTP failures return 502 with
+the underlying error message.
 
 ## Caller authorization
 

@@ -36,8 +36,12 @@ func (p *KubernetesMetricsPlugin) httpOperation(operation string) http.Handler {
 		if err != nil {
 			status, code := http.StatusBadGateway, "HANDLER_ERROR"
 			var validation *invalidError
-			if errors.As(err, &validation) {
+			var lookup *lookupError
+			switch {
+			case errors.As(err, &validation):
 				status, code = http.StatusBadRequest, "EINVALID"
+			case errors.As(err, &lookup):
+				status, code = lookup.status, lookup.code
 			}
 			w.WriteHeader(status)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error_code": code, "error_message": err.Error()})
