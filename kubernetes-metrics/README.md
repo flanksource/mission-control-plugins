@@ -104,6 +104,9 @@ Missing samples are `null`, never fabricated zeroes. Requests and limits remain
 is preserved. Non-finite samples are represented as `null`.
 
 `pods` counts distinct matching pod metadata series and is `0` if none exist.
+For Deployments and StatefulSets, only `Pending` and `Running` pods are counted,
+and only those pods contribute usage, requests, and limits; Failed, Succeeded,
+and Evicted pods that still have kube-state-metrics series are excluded.
 An empty owner join does not prove a workload was scaled to zero. Only when
 both desired and observed Deployment/StatefulSet replica metrics confirm zero
 are missing current usage values reported as `0`; otherwise they remain `null`.

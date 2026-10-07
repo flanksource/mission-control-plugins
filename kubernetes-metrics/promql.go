@@ -69,6 +69,9 @@ func queriesFor(kind, namespace, name string) workloadQueries {
 			" * on (namespace, replicaset) group_left() max by (namespace, replicaset) (kube_replicaset_owner{" + labels + ",owner_kind=\"Deployment\",owner_name=" + workload + ",owner_is_controller=\"true\"}))"
 	}
 	if kind != "pod" {
+		// KSM keeps exporting requests and limits for Failed, Succeeded and Evicted
+		// pods until they are deleted; only Pending and Running pods count.
+		membership = "(" + membership + " and on (namespace, pod) (kube_pod_status_phase{" + labels + ",phase=~\"Pending|Running\"} == 1))"
 		selector := "{" + labels + "," + kind + "=" + workload + "}"
 		desiredMetric := "kube_deployment_spec_replicas"
 		if kind == "statefulset" {
