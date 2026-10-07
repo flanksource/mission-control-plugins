@@ -81,6 +81,9 @@ func queriesFor(kind, namespace, name string) workloadQueries {
 	}
 	q.pods = "count(" + membership + ")"
 	sum := func(metric string) string {
+		// Collapse duplicate series from multiple KSM replicas or kubelet scrape
+		// jobs so each container is counted once.
+		metric = "max by (namespace, pod, container) (" + metric + ")"
 		if kind == "pod" {
 			return "sum(" + metric + ")"
 		}
