@@ -70,3 +70,8 @@ build: generate-ui-checksums ## Build all plugin UIs and Go binaries into PLUGIN
 		echo "Building $$name -> $(PLUGIN_PATH)/$$name"; \
 		(cd "$$plugin" && go build -o "$(PLUGIN_PATH)/$$name" -ldflags "-X 'main.Version=$(VERSION)' -X 'main.BuildDate=$(BUILD_DATE)'" .); \
 	done
+
+.PHONY: dev
+dev: ## Build a development plugin (PLUGIN=kubernetes-metrics)
+	@test -n "$(PLUGIN)" || (echo "PLUGIN is required" >&2; exit 1)
+	MISSION_CONTROL_PLUGIN_PATH="$(PLUGIN_PATH)" task build:plugin:$(PLUGIN) DEBUG=true VERSION="$(VERSION)" BUILD_DATE="$(BUILD_DATE)"

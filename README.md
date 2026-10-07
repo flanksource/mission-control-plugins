@@ -422,6 +422,7 @@ Rule of thumb: if an operator might want to grep for it tomorrow, use
 |---|---|
 | [`golang/`](golang/) | Go runtime introspection — gops, pprof, profile viewer, multi-port discovery |
 | [`kubernetes-logs/`](kubernetes-logs/) | Pod log streaming over chunked HTTP |
+| [`kubernetes-metrics/`](kubernetes-metrics/) | Prometheus CPU/memory usage, requests, limits, and history for Kubernetes workloads |
 | [`inspektor-gadget/`](inspektor-gadget/) | eBPF gadget runs with widget-typed event streams |
 | [`postgres/`](postgres/) | Postgres introspection — sessions, locks, schema, console |
 | [`sql-server/`](sql-server/) | SQL Server introspection |

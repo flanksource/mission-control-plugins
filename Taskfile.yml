@@ -293,6 +293,8 @@ tasks:
       - task: plugin:tidy
         vars: { PLUGIN: kubernetes-logs }
       - task: plugin:tidy
+        vars: { PLUGIN: kubernetes-metrics }
+      - task: plugin:tidy
         vars: { PLUGIN: opensearch }
       - task: plugin:tidy
         vars: { PLUGIN: postgres }
@@ -313,6 +315,8 @@ tasks:
         vars: { PLUGIN: inspektor-gadget }
       - task: plugin:lint
         vars: { PLUGIN: kubernetes-logs }
+      - task: plugin:lint
+        vars: { PLUGIN: kubernetes-metrics }
       - task: plugin:lint
         vars: { PLUGIN: postgres }
       - task: plugin:lint
@@ -341,6 +345,8 @@ tasks:
     desc: Build a plugin UI bundle into <plugin>/ui (PLUGIN=<name>)
     requires:
       vars: [PLUGIN]
+    # Plugins without a UI (e.g. kubernetes-metrics) skip the build and its deps.
+    if: '[ -f "{{.ROOT_DIR}}/{{.PLUGIN}}/ui-src/package.json" ]'
     dir: "{{.PLUGIN}}/ui-src"
     deps:
       - task: plugin:ui:install
@@ -367,7 +373,7 @@ tasks:
       - ../ui/index.html
 
   plugin:generate:
-    desc: Regenerate ui_checksum.go for a plugin (PLUGIN=<name>)
+    desc: Build optional UI assets and run plugin generators (PLUGIN=<name>)
     requires:
       vars: [PLUGIN]
     deps:
@@ -489,6 +495,13 @@ tasks:
       - task: plugin:lint
         vars: { PLUGIN: kubernetes-logs }
 
+  lint:plugin:kubernetes-metrics:
+    desc: Lint the kubernetes-metrics plugin
+    deps: [golangci-lint]
+    cmds:
+      - task: plugin:lint
+        vars: { PLUGIN: kubernetes-metrics }
+
   lint:plugin:postgres:
     desc: Lint the postgres plugin
     deps: [golangci-lint]
@@ -533,6 +546,12 @@ tasks:
     cmds:
       - task: plugin:build
         vars: { PLUGIN: kubernetes-logs, DEBUG: '{{.DEBUG | default "false"}}' }
+
+  build:plugin:kubernetes-metrics:
+    desc: Build and install the kubernetes-metrics plugin
+    cmds:
+      - task: plugin:build
+        vars: { PLUGIN: kubernetes-metrics, DEBUG: '{{.DEBUG | default "false"}}' }
 
   build:plugin:postgres:
     desc: Build and install the postgres plugin
