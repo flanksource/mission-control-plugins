@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorDetails, LogsTable } from '@flanksource/clicky-ui'
 import type { DataTableColumn, LogsTableRow } from '@flanksource/clicky-ui/data'
-import { buildLogsUrl, diagnosticsFromError, fetchLogs, listPods } from './api/kubernetesLogs'
+import { buildLogsQuery, diagnosticsFromError, fetchLogs, listPods } from './api/kubernetesLogs'
 import { LogsToolbar } from './components/LogsToolbar'
 import { getConfigId } from './hooks/useConfigId'
 import { useLogStream } from './hooks/useLogStream'
@@ -38,16 +38,11 @@ export function LogsApp() {
 
   const podsQuery = useQuery({
     queryKey: ['kubernetes-logs', 'pods', configId],
-    queryFn: () => listPods(configId),
+    queryFn: ({ signal }) => listPods(signal),
     enabled: Boolean(configId),
   })
 
   const pods = podsQuery.data ?? []
-
-  useEffect(() => {
-    if (!podsQuery.isFetched && !podsQuery.isError) return
-    window.parent?.postMessage({ type: 'mc.tab.ready' }, '*')
-  }, [podsQuery.isFetched, podsQuery.isError])
 
   useEffect(() => {
     if (!podsQuery.data) return
@@ -64,18 +59,18 @@ export function LogsApp() {
 
   const selectedPodRef = useMemo(() => parseSelectedPod(selectedPod), [selectedPod])
 
-  const logsUrl = useMemo(() => {
+  const logsQueryParams = useMemo(() => {
     if (!selectedPodRef) return null
-    return buildLogsUrl({ configId, selectedPod: selectedPodRef, container, tailLines, follow })
+    return buildLogsQuery({ configId, selectedPod: selectedPodRef, container, tailLines, follow })
   }, [configId, selectedPodRef, container, tailLines, follow])
 
   const logsQuery = useQuery({
-    queryKey: ['kubernetes-logs', 'logs', logsUrl],
-    queryFn: ({ signal }) => fetchLogs(logsUrl!, signal),
-    enabled: Boolean(logsUrl && !follow),
+    queryKey: ['kubernetes-logs', 'logs', logsQueryParams],
+    queryFn: ({ signal }) => fetchLogs(logsQueryParams!, signal),
+    enabled: Boolean(logsQueryParams && !follow),
   })
 
-  const stream = useLogStream(logsUrl, Boolean(logsUrl && follow), streamNonce)
+  const stream = useLogStream(logsQueryParams, Boolean(logsQueryParams && follow), streamNonce)
 
   const podOptions = useMemo(
     () =>

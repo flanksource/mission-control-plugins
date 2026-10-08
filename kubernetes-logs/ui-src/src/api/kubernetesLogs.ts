@@ -3,9 +3,14 @@ import {
   normalizeErrorDiagnostics,
   type ErrorDiagnostics,
 } from '@flanksource/clicky-ui'
+import { createEmbeddedPluginClient, type QueryParams } from '@flanksource/mission-control-sdk'
 import type { PodRow, SelectedPod } from '../types'
+import { getConfigId } from '../hooks/useConfigId'
 
-export const PLUGIN_BASE = '/api/plugins/kubernetes-logs'
+export const pluginClient = createEmbeddedPluginClient({
+  name: 'kubernetes-logs',
+  configId: getConfigId() || undefined,
+})
 
 export class HttpError extends Error {
   constructor(
@@ -17,8 +22,7 @@ export class HttpError extends Error {
   }
 }
 
-async function fetchOrThrow(input: string, init: RequestInit, label: string): Promise<Response> {
-  const res = await fetch(input, init)
+async function responseOrThrow(res: Response, label: string): Promise<Response> {
   if (res.ok) return res
 
   const fallback = `${label} failed: HTTP ${res.status}`
@@ -36,36 +40,25 @@ async function fetchOrThrow(input: string, init: RequestInit, label: string): Pr
   throw new HttpError(diagnostics.message, diagnostics)
 }
 
-export async function listPods(configId: string): Promise<PodRow[]> {
-  const res = await fetchOrThrow(
-    `${PLUGIN_BASE}/invoke/list-pods?config_id=${encodeURIComponent(configId)}`,
-    {
-      method: 'POST',
-      body: '{}',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-    },
+export async function listPods(signal?: AbortSignal): Promise<PodRow[]> {
+  const res = await responseOrThrow(
+    await pluginClient.invoke('list-pods', {}, { signal }),
     'list-pods',
   )
   const rows = (await res.json()) as PodRow[]
   return Array.isArray(rows) ? rows : []
 }
 
-export async function fetchLogs(url: string, signal?: AbortSignal): Promise<LogsTableInput[]> {
-  const res = await fetchOrThrow(
-    url,
-    {
-      method: 'GET',
-      credentials: 'same-origin',
-      signal,
-    },
+export async function fetchLogs(query: QueryParams, signal?: AbortSignal): Promise<LogsTableInput[]> {
+  const res = await responseOrThrow(
+    await pluginClient.invoke('logs', query, { method: 'GET', proxy: true, signal }),
     'logs',
   )
   const rows = (await res.json()) as LogsTableInput[]
   return Array.isArray(rows) ? rows : []
 }
 
-export function buildLogsUrl({
+export function buildLogsQuery({
   configId,
   selectedPod,
   container,
@@ -78,15 +71,14 @@ export function buildLogsUrl({
   tailLines: number
   follow: boolean
 }) {
-  const params = new URLSearchParams({
+  return {
     pod: selectedPod.pod,
     config_id: configId,
     namespace: selectedPod.namespace,
     container,
-    tailLines: String(follow ? 0 : tailLines),
-    follow: follow ? 'true' : 'false',
-  })
-  return `${PLUGIN_BASE}/proxy/logs?${params.toString()}`
+    tailLines: follow ? 0 : tailLines,
+    follow,
+  }
 }
 
 export function diagnosticsFromError(err: unknown): ErrorDiagnostics {
