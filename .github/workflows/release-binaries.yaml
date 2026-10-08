@@ -19,6 +19,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.release.outputs.tag }}
+      plugins: ${{ steps.plugins.outputs.plugins }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -60,6 +61,16 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Discover plugins in release tag
+        id: plugins
+        if: steps.release.outputs.tag != ''
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          plugins=$(git ls-tree -r --name-only "refs/tags/$RELEASE_TAG" | jq -Rsc 'split("\n") | map(select(test("^[^/]+/Plugin\\.yaml$")) | split("/")[0]) | sort')
+          echo "plugins=$plugins" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.os }}/${{ matrix.arch }})
     needs: tag
@@ -68,16 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin:
-          - arthas
-          - golang
-          - inspektor-gadget
-          - kubernetes-logs
-          - kubernetes-metrics
-          - opensearch
-          - postgres
-          - s3
-          - sql-server
+        plugin: ${{ fromJSON(needs.tag.outputs.plugins) }}
         os:
           - linux
           - darwin
@@ -176,7 +178,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag.outputs.tag }}
-          make_latest: ${{ inputs.tag == '' && 'true' || 'false' }}
+          make_latest: ${{ inputs.tag == '' && 'true' || '' }}
           files: |
             dist/*.tar.gz
             dist/${{ needs.tag.outputs.tag }}_checksums.txt
