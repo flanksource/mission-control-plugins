@@ -1,0 +1,154 @@
+name: Release Plugin Binaries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag release
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.semantic.outputs.new-release-published }}
+      version: ${{ steps.semantic.outputs.release-version }}
+      tag: v${{ steps.semantic.outputs.release-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create release tag
+        id: semantic
+        # codfish/semantic-release-action v5.0.0
+        # https://github.com/codfish/semantic-release-action/releases/tag/v5.0.0
+        uses: codfish/semantic-release-action@6abd188d2458e2fd6c99073454f6cc49196362e8
+        with:
+          # release.config.cjs uses this non-default preset to parse scoped
+          # Conventional Commits like `fix(postgres): ...`.
+          additional-packages: |
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.os }}/${{ matrix.arch }})
+    needs: tag
+    if: needs.tag.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - arthas
+          - golang
+          - inspektor-gadget
+          - kubernetes-logs
+          - kubernetes-metrics
+          - opensearch
+          - postgres
+          - s3
+          - sql-server
+        os:
+          - linux
+          - darwin
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.plugin }}/go.mod
+          cache-dependency-path: ${{ matrix.plugin }}/go.sum
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.47.0
+
+      - name: Build plugin
+        env:
+          MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
+        run: >-
+          task build:plugin:ci
+          PLUGIN="${{ matrix.plugin }}"
+          VERSION="${{ needs.tag.outputs.tag }}"
+          TARGET_GOOS="${{ matrix.os }}"
+          TARGET_GOARCH="${{ matrix.arch }}"
+
+      - name: Package artifact
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+          VERSION: ${{ needs.tag.outputs.tag }}
+          OS: ${{ matrix.os }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          name="${PLUGIN}_${VERSION}_${OS}_${ARCH}"
+          package_dir="dist/$name"
+          mkdir -p "$package_dir"
+
+          cp "dist/bin/$PLUGIN" "$package_dir/${PLUGIN}_mc_plugin"
+          cp "$PLUGIN/Plugin.yaml" "$package_dir/Plugin.yaml"
+
+          tar -czf "dist/$name.tar.gz" -C dist "$name"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}
+          path: |
+            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+
+  publish-assets:
+    name: Publish assets for ${{ needs.tag.outputs.tag }}
+    runs-on: ubuntu-latest
+    needs:
+      - tag
+      - build
+    if: needs.tag.outputs.published == 'true'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum *.tar.gz > "${{ needs.tag.outputs.tag }}_checksums.txt"
+          else
+            shasum -a 256 *.tar.gz > "${{ needs.tag.outputs.tag }}_checksums.txt"
+          fi
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          make_latest: true
+          files: |
+            dist/*.tar.gz
+            dist/${{ needs.tag.outputs.tag }}_checksums.txt
