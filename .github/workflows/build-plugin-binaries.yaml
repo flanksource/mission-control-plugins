@@ -1,0 +1,93 @@
+name: Build Plugin Binaries
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to build.
+        required: true
+        type: string
+      version:
+        description: Release tag embedded in binaries and archive names.
+        required: true
+        type: string
+      plugins:
+        description: JSON array of plugin directories in the selected ref.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.plugin }} ${{ inputs.version }} (${{ matrix.os }}/${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJSON(inputs.plugins) }}
+        os:
+          - linux
+          - darwin
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.plugin }}/go.mod
+          cache-dependency-path: ${{ matrix.plugin }}/go.sum
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.47.0
+
+      - name: Build plugin
+        env:
+          MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
+          PLUGIN: ${{ matrix.plugin }}
+          VERSION: ${{ inputs.version }}
+          OS: ${{ matrix.os }}
+          ARCH: ${{ matrix.arch }}
+        run: task build:plugin:ci PLUGIN="$PLUGIN" VERSION="$VERSION" TARGET_GOOS="$OS" TARGET_GOARCH="$ARCH"
+
+      - name: Package artifact
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+          VERSION: ${{ inputs.version }}
+          OS: ${{ matrix.os }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          name="${PLUGIN}_${VERSION}_${OS}_${ARCH}"
+          package_dir="dist/$name"
+          mkdir -p "$package_dir"
+          cp "dist/bin/$PLUGIN" "$package_dir/${PLUGIN}_mc_plugin"
+          cp "$PLUGIN/Plugin.yaml" "$package_dir/Plugin.yaml"
+          tar -czf "dist/$name.tar.gz" -C dist "$name"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.plugin }}_${{ inputs.version }}_${{ matrix.os }}_${{ matrix.arch }}
+          path: dist/${{ matrix.plugin }}_${{ inputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
+          if-no-files-found: error

@@ -9,69 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      plugins: ${{ steps.filter.outputs.changes }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            arthas:
-              - arthas/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            golang:
-              - golang/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            inspektor-gadget:
-              - inspektor-gadget/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            kubernetes-logs:
-              - kubernetes-logs/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            kubernetes-metrics:
-              - kubernetes-metrics/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            opensearch:
-              - opensearch/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            postgres:
-              - postgres/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            s3:
-              - s3/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-            sql-server:
-              - sql-server/**
-              - Makefile
-              - Taskfile.yml
-              - .github/workflows/release.yaml
-
   version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       image_owner: ${{ steps.version.outputs.image_owner }}
+      plugins: ${{ steps.plugins.outputs.plugins }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Discover plugins in release commit
+        id: plugins
+        run: |
+          plugins=$(git ls-tree -r --name-only HEAD | jq -Rsc 'split("\n") | map(select(test("^[^/]+/Plugin\\.yaml$")) | split("/")[0]) | sort')
+          echo "plugins=$plugins" >> "$GITHUB_OUTPUT"
+
       - name: Determine beta version from latest stable GitHub release
         id: version
         env:
@@ -89,10 +44,7 @@ jobs:
 
   publish:
     name: Publish ${{ matrix.plugin }} beta
-    needs:
-      - changes
-      - version
-    if: needs.changes.outputs.plugins != '[]'
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,11 +52,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin: ${{ fromJSON(needs.changes.outputs.plugins) }}
+        plugin: ${{ fromJSON(needs.version.outputs.plugins) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Login to GHCR
@@ -149,42 +102,82 @@ jobs:
           sed -i -E "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" "$chart_dir/Chart.yaml"
           helm package -d dist "$chart_dir"
 
-      - name: Clone charts repo
-        uses: actions/checkout@v6
+      - name: Upload Helm chart
+        uses: actions/upload-artifact@v4
         with:
-          repository: "${{ github.repository_owner }}/charts"
-          path: chart-index
-          token: "${{ secrets.FLANKBOT }}"
+          name: helm-chart-${{ matrix.plugin }}
+          path: dist/*.tgz
+          if-no-files-found: error
 
-      - name: Update chart repo
-        run: |
-          set -euo pipefail
-          cd chart-index
-          cp ../dist/*.tgz ./
-          helm repo index --merge index.yaml .
-
-      - name: Push chart index
-        uses: stefanzweifel/git-auto-commit-action@v6
+  collect-charts:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v6
         with:
-          commit_message: "Release beta ${{ needs.version.outputs.tag }} of mission-control-plugin-${{ matrix.plugin }}"
-          branch: gh-pages
-          repository: ./chart-index
+          pattern: helm-chart-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: dist/*.tgz
+          if-no-files-found: error
+
+  push-helm-chart:
+    needs: [version, collect-charts]
+    permissions:
+      actions: read
+      contents: read
+    uses: flanksource/action-workflows/.github/workflows/push-helm-chart.yml@v1
+    with:
+      filename_regex: mission-control-plugin-*.tgz
+      version: ${{ needs.version.outputs.version }}
+      pr_title: Release beta ${{ needs.version.outputs.tag }} of mission-control-plugins
+    secrets:
+      app_id: ${{ secrets.FLANKSOURCE_APP_ID }}
+      app_private_key: ${{ secrets.FLANKSOURCE_APP_SECRET }}
+
+  build-binaries:
+    needs: version
+    uses: ./.github/workflows/build-plugin-binaries.yaml
+    with:
+      ref: ${{ github.sha }}
+      version: ${{ needs.version.outputs.tag }}
+      plugins: ${{ needs.version.outputs.plugins }}
 
   github-prerelease:
     name: Create GitHub beta prerelease
     needs:
-      - changes
       - version
-      - publish
-    if: needs.changes.outputs.plugins != '[]'
+      - push-helm-chart
+      - build-binaries
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v6
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: sha256sum *.tar.gz > "${TAG}_checksums.txt"
+
       - name: Create prerelease
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/${{ needs.version.outputs.tag }}_checksums.txt
