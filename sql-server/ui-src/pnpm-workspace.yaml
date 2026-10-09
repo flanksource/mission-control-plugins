@@ -8,3 +8,6 @@ overrides:
   shell-quote: 1.8.4
   dompurify: 3.4.12
   esbuild: 0.28.1
+
+minimumReleaseAgeExclude:
+  - '@flanksource/mission-control-sdk@0.0.3'

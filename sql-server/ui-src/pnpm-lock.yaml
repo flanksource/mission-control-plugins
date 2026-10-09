@@ -16,9 +16,9 @@ importers:
       '@flanksource/clicky-ui':
         specifier: ^0.3.0
         version: 0.3.15(@babel/core@7.29.7)(@babel/template@7.29.7)(ai@6.0.33(zod@4.4.2))(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(recharts@3.10.0(react-dom@18.3.1(react@18.3.1))(react-is@19.2.7)(react@18.3.1)(redux@5.0.1))(tailwindcss@4.2.4)
-      '@flanksource/plugin-ui-sdk':
-        specifier: file:vendor/plugin-ui-sdk
-        version: file:vendor/plugin-ui-sdk
+      '@flanksource/mission-control-sdk':
+        specifier: ^0.0.3
+        version: 0.0.3(@flanksource/clicky-ui@0.3.15(@babel/core@7.29.7)(@babel/template@7.29.7)(ai@6.0.33(zod@4.4.2))(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(recharts@3.10.0(react-dom@18.3.1(react@18.3.1))(react-is@19.2.7)(react@18.3.1)(redux@5.0.1))(tailwindcss@4.2.4))(@tanstack/react-query@5.100.8(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -425,9 +425,23 @@ packages:
     peerDependencies:
       react: '*'
 
-  '@flanksource/plugin-ui-sdk@file:vendor/plugin-ui-sdk':
-    resolution: {directory: vendor/plugin-ui-sdk, type: directory}
+  '@flanksource/mission-control-sdk@0.0.3':
+    resolution: {integrity: sha512-sNiq6djhaOF0Y6YdEWBi/pxzd2bQs6MeDbARKJghOjMzGCtPpoi957VQMMzLWHaZCNqQ5Z+5l6wvqX2S0mK/Vg==}
     engines: {node: '>=20'}
+    peerDependencies:
+      '@flanksource/clicky-ui': ^0.3.40
+      '@tanstack/react-query': ^5.66.8
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@flanksource/clicky-ui':
+        optional: true
+      '@tanstack/react-query':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -1848,7 +1862,12 @@ snapshots:
     dependencies:
       react: 18.3.1
 
-  '@flanksource/plugin-ui-sdk@file:vendor/plugin-ui-sdk': {}
+  '@flanksource/mission-control-sdk@0.0.3(@flanksource/clicky-ui@0.3.15(@babel/core@7.29.7)(@babel/template@7.29.7)(ai@6.0.33(zod@4.4.2))(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(recharts@3.10.0(react-dom@18.3.1(react@18.3.1))(react-is@19.2.7)(react@18.3.1)(redux@5.0.1))(tailwindcss@4.2.4))(@tanstack/react-query@5.100.8(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    optionalDependencies:
+      '@flanksource/clicky-ui': 0.3.15(@babel/core@7.29.7)(@babel/template@7.29.7)(ai@6.0.33(zod@4.4.2))(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(recharts@3.10.0(react-dom@18.3.1(react@18.3.1))(react-is@19.2.7)(react@18.3.1)(redux@5.0.1))(tailwindcss@4.2.4)
+      '@tanstack/react-query': 5.100.8(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   '@floating-ui/core@1.8.0':
     dependencies:

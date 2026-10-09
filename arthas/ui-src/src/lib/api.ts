@@ -1,6 +1,8 @@
-import { invoke } from "@flanksource/plugin-ui-sdk";
+import { createEmbeddedPluginClient } from "@flanksource/mission-control-sdk";
 
 export const PLUGIN_NAME = "arthas";
+
+const pluginClient = createEmbeddedPluginClient({ name: PLUGIN_NAME });
 
 export class OpError extends Error {
   readonly status: number;
@@ -20,7 +22,7 @@ export async function callOp<T = unknown>(
   op: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {
-  const res = await invoke(op, params);
+  const res = await pluginClient.invoke(op, params, { proxy: true });
   if (!res.ok) {
     const text = await res.text();
     let body: unknown = text;

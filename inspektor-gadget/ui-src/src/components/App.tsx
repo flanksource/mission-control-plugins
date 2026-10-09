@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
+import { createEmbeddedPluginClient } from "@flanksource/mission-control-sdk";
 import {
   Badge,
   Button,
@@ -19,12 +19,14 @@ import { StartTraceDialog } from "./StartTraceDialog";
 import type { GadgetSpec, Session, Status, TraceEvent } from "../types";
 import { sessionIconFor, widgetLabel } from "../utils/gadgets";
 
+const pluginClient = createEmbeddedPluginClient({ name: "inspektor-gadget" });
+
 function configId() {
   return new URLSearchParams(window.location.search).get("config_id") || "";
 }
 
 async function invoke<T>(op: string, body: unknown = {}): Promise<T> {
-  const res = await sdkInvoke(op, body);
+  const res = await pluginClient.invoke(op, body, { proxy: true });
   if (!res.ok) {
     throw new Error(await res.text());
   }
@@ -80,7 +82,6 @@ export function App() {
 
   useEffect(() => {
     refresh().catch((err) => setError(String(err)));
-    ready();
   }, []);
 
   useEffect(() => {
