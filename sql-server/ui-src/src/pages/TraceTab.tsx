@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Play, RefreshCw, Square, Trash2 } from "lucide-react";
 import {
@@ -198,7 +198,7 @@ export function TraceTab() {
   const [minDurationMicros, setMinDurationMicros] = useState(0);
   const [activeTraceID, setActiveTraceID] = useState<string | null>(null);
   const [events, setEvents] = useState<TraceEvent[]>([]);
-  const esRef = useRef<EventSource | null>(null);
+  const [streamError, setStreamError] = useState<Error | null>(null);
 
   const list = useQuery({
     queryKey: ["traces", configID],
@@ -236,14 +236,20 @@ export function TraceTab() {
 
   useEffect(() => {
     if (!activeTraceID) return;
-    esRef.current?.close();
-    const es = openTraceStream(
+    const controller = new AbortController();
+    setStreamError(null);
+    void openTraceStream(
       activeTraceID,
       (e) => setEvents((prev) => [...prev, e as TraceEvent]),
       () => qc.invalidateQueries({ queryKey: ["traces"] }),
-    );
-    esRef.current = es;
-    return () => es.close();
+      undefined,
+      controller.signal,
+    ).catch((error) => {
+      if (!controller.signal.aborted) {
+        setStreamError(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    return () => controller.abort();
   }, [activeTraceID, qc]);
 
   return (
@@ -286,6 +292,7 @@ export function TraceTab() {
       </Card>
 
       {startMut.error && <ErrorBox error={startMut.error as Error} />}
+      {streamError && <ErrorBox error={streamError} />}
 
       <Card title="Active and recent traces">
         <div className="mb-density-1 flex items-center justify-between">

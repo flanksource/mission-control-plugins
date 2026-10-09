@@ -1,4 +1,6 @@
-import { invoke } from "@flanksource/plugin-ui-sdk";
+import { createEmbeddedPluginClient } from "@flanksource/mission-control-sdk";
+
+const pluginClient = createEmbeddedPluginClient({ name: "golang" });
 
 export interface RunningPod {
   namespace: string;
@@ -91,32 +93,32 @@ export function configIDFromURL(): string {
 }
 
 export async function callOp<T>(op: string, params: Record<string, unknown> = {}): Promise<T> {
-  const res = await invoke(op, params);
+  const res = await pluginClient.invoke(op, params, { proxy: true });
   return responseJSON<T>(res);
 }
 
 export async function fetchProfileFlamegraph(sessionID: string, runID: string, sampleIndex?: string): Promise<ProfileFlamegraph> {
-  const res = await invoke("profiles", undefined, {
-    method: "GET",
-    query: { path: `${sessionID}/${runID}/flamegraph-data`, si: sampleIndex },
-  });
+  const res = await pluginClient.invoke("profiles",
+    { path: `${sessionID}/${runID}/flamegraph-data`, si: sampleIndex },
+    { method: "GET", proxy: true },
+  );
   return responseJSON<ProfileFlamegraph>(res);
 }
 
 export async function fetchProfileTop(sessionID: string, runID: string, sampleIndex?: string): Promise<string> {
-  const res = await invoke("profiles", undefined, {
-    method: "GET",
-    query: { path: `${sessionID}/${runID}/top`, si: sampleIndex },
-  });
+  const res = await pluginClient.invoke("profiles",
+    { path: `${sessionID}/${runID}/top`, si: sampleIndex },
+    { method: "GET", proxy: true },
+  );
   if (!res.ok) throw new Error(await res.text() || res.statusText);
   return res.text();
 }
 
 export async function fetchProfileBlob(sessionID: string, runID: string): Promise<Blob> {
-  const res = await invoke("profiles", undefined, {
-    method: "GET",
-    query: { path: `${sessionID}/${runID}` },
-  });
+  const res = await pluginClient.invoke("profiles",
+    { path: `${sessionID}/${runID}` },
+    { method: "GET", proxy: true },
+  );
   if (!res.ok) throw new Error(await res.text() || res.statusText);
   return res.blob();
 }

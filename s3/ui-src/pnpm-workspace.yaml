@@ -9,3 +9,6 @@ overrides:
 
 onlyBuiltDependencies:
   - esbuild
+
+minimumReleaseAgeExclude:
+  - '@flanksource/mission-control-sdk@0.0.3'

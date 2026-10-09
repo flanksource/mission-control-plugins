@@ -1,6 +1,5 @@
 import { render } from "preact";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ready } from "@flanksource/plugin-ui-sdk";
 import { DensityProvider, ThemeProvider } from "@flanksource/clicky-ui";
 import { App } from "./App";
 import "./styles.css";
@@ -27,9 +26,3 @@ render(
   </ThemeProvider>,
   root,
 );
-
-try {
-  ready();
-} catch (err) {
-  console.warn("plugin-ui-sdk ready signal skipped", err);
-}

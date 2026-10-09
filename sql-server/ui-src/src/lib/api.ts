@@ -1,4 +1,4 @@
-import { stream } from "@flanksource/plugin-ui-sdk";
+import { createEmbeddedPluginClient } from "@flanksource/mission-control-sdk";
 
 // API client for the sql-server plugin's iframe.
 //
@@ -12,20 +12,7 @@ import { stream } from "@flanksource/plugin-ui-sdk";
 
 export const PLUGIN_NAME = "sql-server";
 
-function pluginBasePath(): string {
-  const match = window.location.pathname.match(/^(.*\/api\/plugins\/[^/]+)\/ui(?:\/.*)?$/);
-  if (match) return match[1];
-  return `/api/plugins/${PLUGIN_NAME}`;
-}
-
-function operationURL(op: string, configID: string): string {
-  const url = new URL(
-    `${pluginBasePath()}/invoke/${encodeURIComponent(op)}`,
-    window.location.origin,
-  );
-  if (configID) url.searchParams.set("config_id", configID);
-  return url.toString();
-}
+const pluginClient = createEmbeddedPluginClient({ name: PLUGIN_NAME });
 
 // OpError carries the parsed error body alongside the message so the UI's
 // ErrorDetails component (via normalizeErrorDiagnostics) can lift trace IDs,
@@ -46,15 +33,10 @@ export class OpError extends Error {
 
 export async function callOp<T = unknown>(
   op: string,
-  configID: string,
+  _configID: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {
-  const res = await fetch(operationURL(op, configID), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify(params),
-  });
+  const res = await pluginClient.invoke(op, params);
   if (!res.ok) {
     const text = await res.text();
     let body: unknown = text;
@@ -79,29 +61,32 @@ export async function callOp<T = unknown>(
   return (await res.json()) as T;
 }
 
-export function openTraceStream(
+export async function openTraceStream(
   traceID: string,
   onEvent: (e: unknown) => void,
   onDone?: () => void,
   since?: string,
-): EventSource {
-  const es = stream(
+  signal?: AbortSignal,
+): Promise<void> {
+  for await (const event of pluginClient.stream(
     "trace-stream",
     { id: traceID, since },
-    { withCredentials: true },
-  );
-  es.onmessage = (ev) => {
-    try {
-      onEvent(JSON.parse(ev.data));
-    } catch {
-      // Skip malformed frames silently — the server only emits JSON.
+    { signal },
+  )) {
+    if (event.event === "done") {
+      onDone?.();
+      return;
     }
-  };
-  es.addEventListener("done", () => {
-    onDone?.();
-    es.close();
-  });
-  return es;
+    if (event.event === "message") {
+      let data: unknown;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        continue;
+      }
+      onEvent(data);
+    }
+  }
 }
 
 export function configIDFromURL(): string {

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import { invoke as sdkInvoke, ready } from "@flanksource/plugin-ui-sdk";
+import { createEmbeddedPluginClient } from "@flanksource/mission-control-sdk";
 import { logBanner } from "./version";
 import "./styles.css";
 
 logBanner();
+
+const pluginClient = createEmbeddedPluginClient({ name: "s3" });
 
 type PrefixMetadata = {
   name: string;
@@ -52,7 +54,7 @@ type TreeEntry =
   | { type: "object"; path: string; object: ObjectMetadata };
 
 async function invoke<T>(operation: string, body: unknown) {
-  const res = await sdkInvoke(operation, body);
+  const res = await pluginClient.invoke(operation, body, { proxy: true });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);
@@ -177,7 +179,6 @@ function App() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingPrefix("");
-      ready();
     }
   }
 
