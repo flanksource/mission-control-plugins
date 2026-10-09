@@ -110,6 +110,8 @@ jobs:
           if-no-files-found: error
 
   collect-charts:
+    # Paused with Helm publishing until the App private key is available: https://github.com/flanksource/mission-control-plugins/issues/113
+    if: false
     needs: publish
     runs-on: ubuntu-latest
     steps:
@@ -125,6 +127,8 @@ jobs:
           if-no-files-found: error
 
   push-helm-chart:
+    # Restore this job and the release dependency when #113 is resolved.
+    if: false
     needs: [version, collect-charts]
     permissions:
       actions: read
@@ -150,7 +154,7 @@ jobs:
     name: Create GitHub beta prerelease
     needs:
       - version
-      - push-helm-chart
+      - publish
       - build-binaries
     runs-on: ubuntu-latest
     permissions:
