@@ -12,11 +12,22 @@ permissions:
   contents: read
 
 jobs:
-  tag:
-    name: Tag release
-    runs-on: ubuntu-latest
+  create-release:
+    if: inputs.tag == ''
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
+    uses: flanksource/action-workflows/.github/workflows/create-release.yml@807c141342c97374e637b4375e3a54e62cd8736e
+    with:
+      extra_plugins: conventional-changelog-conventionalcommits
+
+  tag:
+    name: Resolve release tag
+    needs: create-release
+    # Existing-tag rebuilds must run even though create-release is skipped.
+    if: ${{ !cancelled() && (inputs.tag != '' || needs.create-release.outputs.published == 'true') }}
+    runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       plugins: ${{ steps.plugins.outputs.plugins }}
@@ -27,28 +38,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Create release tag
-        id: semantic
-        if: inputs.tag == ''
-        # codfish/semantic-release-action v5.0.0
-        # https://github.com/codfish/semantic-release-action/releases/tag/v5.0.0
-        uses: codfish/semantic-release-action@6abd188d2458e2fd6c99073454f6cc49196362e8
-        with:
-          # release.config.cjs uses this non-default preset to parse scoped
-          # Conventional Commits like `fix(postgres): ...`.
-          additional-packages: |
-            conventional-changelog-conventionalcommits
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Resolve release tag
         id: release
-        if: inputs.tag != '' || steps.semantic.outputs.new-release-published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           EXISTING_TAG: ${{ inputs.tag }}
-          NEW_VERSION: ${{ steps.semantic.outputs.release-version }}
+          NEW_TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           set -euo pipefail
           if [ -n "$EXISTING_TAG" ]; then
@@ -57,13 +53,12 @@ jobs:
             gh release view --repo "$REPO" --json tagName --jq .tagName -- "$EXISTING_TAG"
             tag="$EXISTING_TAG"
           else
-            tag="v$NEW_VERSION"
+            tag="$NEW_TAG"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Discover plugins in release tag
         id: plugins
-        if: steps.release.outputs.tag != ''
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
