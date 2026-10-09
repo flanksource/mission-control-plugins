@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     uses: flanksource/action-workflows/.github/workflows/create-release.yml@807c141342c97374e637b4375e3a54e62cd8736e
     with:
-      extra_plugins: conventional-changelog-conventionalcommits
+      extra_plugins: conventional-changelog-conventionalcommits@8.0.0
 
   tag:
     name: Resolve release tag
