@@ -72,82 +72,13 @@ jobs:
           echo "plugins=$plugins" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build ${{ matrix.plugin }} ${{ needs.tag.outputs.tag }} (${{ matrix.os }}/${{ matrix.arch }})
     needs: tag
     if: needs.tag.outputs.tag != ''
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        plugin: ${{ fromJSON(needs.tag.outputs.plugins) }}
-        os:
-          - linux
-          - darwin
-        arch:
-          - amd64
-          - arm64
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.tag.outputs.tag }}
-          fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: ${{ matrix.plugin }}/go.mod
-          cache-dependency-path: ${{ matrix.plugin }}/go.sum
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-          run_install: false
-
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.47.0
-
-      - name: Build plugin
-        env:
-          MISSION_CONTROL_PLUGIN_PATH: ${{ github.workspace }}/dist/bin
-        run: >-
-          task build:plugin:ci
-          PLUGIN="${{ matrix.plugin }}"
-          VERSION="${{ needs.tag.outputs.tag }}"
-          TARGET_GOOS="${{ matrix.os }}"
-          TARGET_GOARCH="${{ matrix.arch }}"
-
-      - name: Package artifact
-        env:
-          PLUGIN: ${{ matrix.plugin }}
-          VERSION: ${{ needs.tag.outputs.tag }}
-          OS: ${{ matrix.os }}
-          ARCH: ${{ matrix.arch }}
-        run: |
-          name="${PLUGIN}_${VERSION}_${OS}_${ARCH}"
-          package_dir="dist/$name"
-          mkdir -p "$package_dir"
-
-          cp "dist/bin/$PLUGIN" "$package_dir/${PLUGIN}_mc_plugin"
-          cp "$PLUGIN/Plugin.yaml" "$package_dir/Plugin.yaml"
-
-          tar -czf "dist/$name.tar.gz" -C dist "$name"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}
-          path: |
-            dist/${{ matrix.plugin }}_${{ needs.tag.outputs.tag }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
-          if-no-files-found: error
+    uses: ./.github/workflows/build-plugin-binaries.yaml
+    with:
+      ref: ${{ needs.tag.outputs.tag }}
+      version: ${{ needs.tag.outputs.tag }}
+      plugins: ${{ needs.tag.outputs.plugins }}
 
   publish-assets:
     name: Publish assets for ${{ needs.tag.outputs.tag }}
@@ -162,6 +93,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
+          pattern: binary-*
           path: dist
           merge-multiple: true
 

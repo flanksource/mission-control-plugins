@@ -29,6 +29,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -89,31 +92,38 @@ jobs:
           sed -i -E "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" "$chart_dir/Chart.yaml"
           helm package -d dist "$chart_dir"
 
-      - name: Clone charts repo
-        uses: actions/checkout@v6
+      - name: Upload Helm chart
+        uses: actions/upload-artifact@v4
         with:
-          repository: "${{ github.repository_owner }}/charts"
-          path: chart-index
-          token: "${{ secrets.FLANKBOT }}"
+          name: helm-chart
+          path: dist/*.tgz
+          if-no-files-found: error
 
-      - name: Update chart repo
-        run: |
-          set -euo pipefail
-          cd chart-index
-          cp ../dist/*.tgz ./
-          helm repo index --merge index.yaml .
+  push-helm-chart:
+    needs: release
+    permissions:
+      actions: read
+      contents: read
+    uses: flanksource/action-workflows/.github/workflows/push-helm-chart.yml@807c141342c97374e637b4375e3a54e62cd8736e
+    with:
+      filename_regex: mission-control-plugin-*.tgz
+      version: ${{ needs.release.outputs.version }}
+      pr_title: Release ${{ needs.release.outputs.tag }} of mission-control-plugin-${{ inputs.plugin }}
+    secrets:
+      app_id: ${{ secrets.FLANKSOURCE_APP_ID }}
+      app_private_key: ${{ secrets.FLANKSOURCE_APP_SECRET }}
 
-      - name: Push chart index
-        uses: stefanzweifel/git-auto-commit-action@v6
-        with:
-          commit_message: "Release ${{ steps.version.outputs.tag }} of mission-control-plugin-${{ inputs.plugin }}"
-          branch: gh-pages
-          repository: ./chart-index
-
+  github-release:
+    needs: [release, push-helm-chart]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.release.outputs.tag }}
+          name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           prerelease: false
           generate_release_notes: true
